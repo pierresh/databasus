@@ -158,11 +158,11 @@ func (s *TelemetryService) attachBackupSizes(
 	}
 
 	if backup.BackupSizeMb > 0 {
-		entry.BackupSizeMb = int64(math.Round(backup.BackupSizeMb))
+		entry.BackupSizeMb = int64(math.Ceil(backup.BackupSizeMb))
 	}
 
 	if backup.BackupRawDbSizeMb > 0 {
-		entry.RawSizeMb = int64(math.Round(backup.BackupRawDbSizeMb))
+		entry.RawSizeMb = int64(math.Ceil(backup.BackupRawDbSizeMb))
 	}
 
 	return nil

@@ -391,8 +391,39 @@ func Test_BuildAndSend_WhenLatestBackupHasBothSizes_IncludesBoth(t *testing.T) {
 	require.Len(t, sender.calls[0].Databases, 1)
 
 	entry := sender.calls[0].Databases[0]
-	assert.Equal(t, int64(870), entry.BackupSizeMb)
+	assert.Equal(t, int64(871), entry.BackupSizeMb)
 	assert.Equal(t, int64(4322), entry.RawSizeMb)
+}
+
+func Test_BuildAndSend_WhenSizesAreSubMb_RoundsUpToOne(t *testing.T) {
+	db := postgresDatabase("pg", availableStatus())
+
+	sender := &fakeSender{}
+	service := newServiceUnderTest(
+		t,
+		&fakeDatabaseLister{databases: []*databases.Database{db}},
+		&fakeStorageLister{},
+		&fakeNotifierLister{},
+		&fakeBackupChecker{
+			latestBackups: map[uuid.UUID]*backups_core.Backup{
+				db.ID: {BackupSizeMb: 0.3, BackupRawDbSizeMb: 0.1},
+			},
+		},
+		sender,
+	)
+
+	require.NoError(t, service.BuildAndSend(context.Background()))
+	require.Len(t, sender.calls, 1)
+	require.Len(t, sender.calls[0].Databases, 1)
+
+	entry := sender.calls[0].Databases[0]
+	assert.Equal(t, int64(1), entry.BackupSizeMb)
+	assert.Equal(t, int64(1), entry.RawSizeMb)
+
+	encoded, err := json.Marshal(entry)
+	require.NoError(t, err)
+	assert.Contains(t, string(encoded), "backupSizeMb")
+	assert.Contains(t, string(encoded), "rawSizeMb")
 }
 
 func Test_BuildAndSend_WhenRawSizeZero_IncludesOnlyBackupSize(t *testing.T) {
