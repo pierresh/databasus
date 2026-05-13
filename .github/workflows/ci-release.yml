@@ -482,13 +482,16 @@ jobs:
             databasus-dev:smoke-${{ github.sha }}
 
           for i in $(seq 1 60); do
-            code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:4005/system/health || true)
-            if [ "$code" = "200" ]; then
+            health_body=$(mktemp)
+            code=$(curl -s -o "$health_body" -w '%{http_code}' http://localhost:4005/api/v1/system/health || true)
+            if [ "$code" = "200" ] && grep -q '"status"' "$health_body"; then
               echo "healthcheck OK after ${i} attempt(s)"
+              rm -f "$health_body"
               break
             fi
+            rm -f "$health_body"
             if [ "$i" -eq 60 ]; then
-              echo "healthcheck never returned 200 (last code: ${code})"
+              echo "healthcheck never returned valid JSON (last code: ${code})"
               docker logs databasus-dev-smoke
               exit 1
             fi
@@ -502,6 +505,30 @@ jobs:
             exit 1
           fi
           echo "index.html OK"
+
+          for arch in amd64 arm64; do
+            echo "Checking agent download for $arch..."
+            out=$(mktemp)
+            http=$(curl -sS -o "$out" -w '%{http_code}' "http://localhost:4005/api/v1/system/agent?arch=$arch")
+            if [ "$http" != "200" ]; then
+              echo "agent ($arch) download failed: HTTP $http"
+              head -c 200 "$out" || true
+              docker logs databasus-dev-smoke
+              rm -f "$out"
+              exit 1
+            fi
+            magic=$(head -c 4 "$out" | od -An -t x1 | tr -d ' ')
+            if [ "$magic" != "7f454c46" ]; then
+              echo "agent ($arch) is not an ELF binary (first 4 bytes: $magic)"
+              head -c 200 "$out" || true
+              docker logs databasus-dev-smoke
+              rm -f "$out"
+              exit 1
+            fi
+            size=$(stat -c%s "$out")
+            echo "agent ($arch) OK (${size} bytes)"
+            rm -f "$out"
+          done
 
       - name: Install Trivy
         run: |
@@ -606,13 +633,16 @@ jobs:
             databasus:smoke-${{ github.sha }}
 
           for i in $(seq 1 60); do
-            code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:4005/system/health || true)
-            if [ "$code" = "200" ]; then
+            health_body=$(mktemp)
+            code=$(curl -s -o "$health_body" -w '%{http_code}' http://localhost:4005/api/v1/system/health || true)
+            if [ "$code" = "200" ] && grep -q '"status"' "$health_body"; then
               echo "healthcheck OK after ${i} attempt(s)"
+              rm -f "$health_body"
               break
             fi
+            rm -f "$health_body"
             if [ "$i" -eq 60 ]; then
-              echo "healthcheck never returned 200 (last code: ${code})"
+              echo "healthcheck never returned valid JSON (last code: ${code})"
               docker logs databasus-smoke
               exit 1
             fi
@@ -626,6 +656,30 @@ jobs:
             exit 1
           fi
           echo "index.html OK"
+
+          for arch in amd64 arm64; do
+            echo "Checking agent download for $arch..."
+            out=$(mktemp)
+            http=$(curl -sS -o "$out" -w '%{http_code}' "http://localhost:4005/api/v1/system/agent?arch=$arch")
+            if [ "$http" != "200" ]; then
+              echo "agent ($arch) download failed: HTTP $http"
+              head -c 200 "$out" || true
+              docker logs databasus-smoke
+              rm -f "$out"
+              exit 1
+            fi
+            magic=$(head -c 4 "$out" | od -An -t x1 | tr -d ' ')
+            if [ "$magic" != "7f454c46" ]; then
+              echo "agent ($arch) is not an ELF binary (first 4 bytes: $magic)"
+              head -c 200 "$out" || true
+              docker logs databasus-smoke
+              rm -f "$out"
+              exit 1
+            fi
+            size=$(stat -c%s "$out")
+            echo "agent ($arch) OK (${size} bytes)"
+            rm -f "$out"
+          done
 
       - name: Install Trivy
         run: |
