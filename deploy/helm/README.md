@@ -115,6 +115,7 @@ Notes:
 | `persistence.accessMode`       | Access mode               | `ReadWriteOnce`        |
 | `persistence.size`             | Storage size              | `10Gi`                 |
 | `persistence.mountPath`        | Mount path                | `/databasus-data`     |
+| `persistence.annotations`      | Annotations for the PVC   | `{}`                   |
 
 ### Resources
 
@@ -268,7 +269,6 @@ persistence:
   storageClassName: "fast-ssd"
   annotations:
     k8up.io/backup: "false"
-
 ```
 
 ```bash
