@@ -1,93 +1,72 @@
 package cache_utils
 
 import (
-	"context"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 )
 
-func Test_ClearAllCache_AfterClear_CacheIsEmpty(t *testing.T) {
-	client := getCache()
+func Test_CacheUtil_SetAndGet_ReturnsStoredValue(t *testing.T) {
+	c := NewCacheUtil[string]("test:user:")
 
-	// Arrange: Set up multiple cache entries with different prefixes
-	testKeys := []struct {
-		prefix string
-		key    string
-		value  string
-	}{
-		{"test:user:", "user1", "John Doe"},
-		{"test:user:", "user2", "Jane Smith"},
-		{"test:session:", "session1", "abc123"},
-		{"test:session:", "session2", "def456"},
-		{"test:data:", "item1", "value1"},
+	value := "John Doe"
+	c.Set("user1", &value)
+
+	retrieved := c.Get("user1")
+	assert.NotNil(t, retrieved)
+	assert.Equal(t, value, *retrieved)
+}
+
+func Test_CacheUtil_ClearAll_RemovesAllEntries(t *testing.T) {
+	c := NewCacheUtil[string]("test:clear:")
+
+	keys := []string{"a", "b", "c"}
+	for _, k := range keys {
+		v := "value:" + k
+		c.Set(k, &v)
 	}
 
-	// Set all test keys
-	for _, tk := range testKeys {
-		cacheUtil := NewCacheUtil[string](client, tk.prefix)
-		cacheUtil.Set(tk.key, &tk.value)
-	}
+	c.ClearAll()
 
-	// Verify keys were set correctly before clearing
-	for _, tk := range testKeys {
-		cacheUtil := NewCacheUtil[string](client, tk.prefix)
-		retrieved := cacheUtil.Get(tk.key)
-		assert.NotNil(t, retrieved, "Key %s should exist before clearing", tk.prefix+tk.key)
-		assert.Equal(t, tk.value, *retrieved, "Retrieved value should match set value")
-	}
-
-	// Act: Clear all cache
-	err := ClearAllCache()
-
-	// Assert: No error returned
-	assert.NoError(t, err, "ClearAllCache should not return an error")
-
-	// Assert: All keys should be deleted
-	for _, tk := range testKeys {
-		cacheUtil := NewCacheUtil[string](client, tk.prefix)
-		retrieved := cacheUtil.Get(tk.key)
-		assert.Nil(t, retrieved, "Key %s should be deleted after clearing", tk.prefix+tk.key)
+	for _, k := range keys {
+		assert.Nil(t, c.Get(k), "key %s should be gone after ClearAll", k)
 	}
 }
 
-func Test_SetWithExpiration_SetsCorrectTTL(t *testing.T) {
-	client := getCache()
+func Test_CacheUtil_SetWithExpiration_SetsCorrectTTL(t *testing.T) {
+	c := NewCacheUtil[string]("test:ttl:")
 
-	// Create a cache utility
-	testPrefix := "test:ttl:"
-	cacheUtil := NewCacheUtil[string](client, testPrefix)
+	value := "expires soon"
+	c.SetWithExpiration("key1", &value, 100*time.Millisecond)
 
-	// Set a value with 1-hour expiration
-	testKey := "key1"
-	testValue := "test value"
-	oneHour := 1 * time.Hour
+	assert.NotNil(t, c.Get("key1"), "value should be present before expiry")
 
-	cacheUtil.SetWithExpiration(testKey, &testValue, oneHour)
+	time.Sleep(150 * time.Millisecond)
 
-	// Verify the value was set
-	retrieved := cacheUtil.Get(testKey)
-	assert.NotNil(t, retrieved, "Value should be stored")
-	assert.Equal(t, testValue, *retrieved, "Retrieved value should match")
+	assert.Nil(t, c.Get("key1"), "value should be gone after expiry")
+}
 
-	// Check the TTL using Valkey TTL command
-	ctx, cancel := context.WithTimeout(t.Context(), DefaultCacheTimeout)
-	defer cancel()
+func Test_CacheUtil_Invalidate_RemovesEntry(t *testing.T) {
+	c := NewCacheUtil[string]("test:inv:")
 
-	fullKey := testPrefix + testKey
-	ttlResult := client.Do(ctx, client.B().Ttl().Key(fullKey).Build())
-	assert.NoError(t, ttlResult.Error(), "TTL command should not error")
+	value := "to remove"
+	c.Set("k", &value)
+	c.Invalidate("k")
 
-	ttlSeconds, err := ttlResult.AsInt64()
-	assert.NoError(t, err, "TTL should be retrievable as int64")
+	assert.Nil(t, c.Get("k"))
+}
 
-	// TTL should be approximately 1 hour (3600 seconds)
-	// Allow for a small margin (within 10 seconds of 3600)
-	expectedTTL := int64(3600)
-	assert.GreaterOrEqual(t, ttlSeconds, expectedTTL-10, "TTL should be close to 1 hour")
-	assert.LessOrEqual(t, ttlSeconds, expectedTTL, "TTL should not exceed 1 hour")
+func Test_CacheUtil_GetAndDelete_RemovesOnRead(t *testing.T) {
+	c := NewCacheUtil[string]("test:gad:")
 
-	// Clean up
-	cacheUtil.Invalidate(testKey)
+	value := "one-shot"
+	c.Set("k", &value)
+
+	first := c.GetAndDelete("k")
+	assert.NotNil(t, first)
+	assert.Equal(t, value, *first)
+
+	second := c.GetAndDelete("k")
+	assert.Nil(t, second)
 }

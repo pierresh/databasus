@@ -2,8 +2,7 @@ package backuping
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -311,45 +310,6 @@ func Test_BackupCounters_TrackedSeparatelyPerNode(t *testing.T) {
 	assert.Equal(t, 1, statsMap[node2.ID])
 }
 
-func Test_GetAvailableNodes_SkipsInvalidJsonData(t *testing.T) {
-	cache_utils.ClearAllCache()
-	registry := createTestRegistry()
-	node := createTestBackupNode()
-	defer cleanupTestNode(registry, node)
-
-	err := registry.HearthbeatNodeInRegistry(time.Now().UTC(), node)
-	assert.NoError(t, err)
-
-	ctx, cancel := context.WithTimeout(t.Context(), registry.timeout)
-	defer cancel()
-
-	invalidKey := nodeInfoKeyPrefix + uuid.New().String() + nodeInfoKeySuffix
-	registry.client.Do(
-		ctx,
-		registry.client.B().Set().Key(invalidKey).Value("invalid json data").Build(),
-	)
-	defer func() {
-		cleanupCtx, cleanupCancel := context.WithTimeout(t.Context(), registry.timeout)
-		defer cleanupCancel()
-		registry.client.Do(cleanupCtx, registry.client.B().Del().Key(invalidKey).Build())
-	}()
-
-	nodes, err := registry.GetAvailableNodes()
-	assert.NoError(t, err)
-	assert.Len(t, nodes, 1)
-	assert.Equal(t, node.ID, nodes[0].ID)
-}
-
-func Test_PipelineGetKeys_HandlesEmptyKeysList(t *testing.T) {
-	cache_utils.ClearAllCache()
-	registry := createTestRegistry()
-
-	keyDataMap, err := registry.pipelineGetKeys([]string{})
-	assert.NoError(t, err)
-	assert.NotNil(t, keyDataMap)
-	assert.Empty(t, keyDataMap)
-}
-
 func Test_HearthbeatNodeInRegistry_UpdatesLastHeartbeat(t *testing.T) {
 	cache_utils.ClearAllCache()
 	registry := createTestRegistry()
@@ -382,7 +342,7 @@ func Test_HearthbeatNodeInRegistry_RejectsZeroTimestamp(t *testing.T) {
 	assert.Len(t, nodes, 0)
 }
 
-func Test_GetAvailableNodes_ExcludesStaleNodesFromCache(t *testing.T) {
+func Test_GetAvailableNodes_ExcludesStaleNodes(t *testing.T) {
 	cache_utils.ClearAllCache()
 	registry := createTestRegistry()
 	node1 := createTestBackupNode()
@@ -399,31 +359,12 @@ func Test_GetAvailableNodes_ExcludesStaleNodesFromCache(t *testing.T) {
 	err = registry.HearthbeatNodeInRegistry(time.Now().UTC(), node3)
 	assert.NoError(t, err)
 
-	ctx, cancel := context.WithTimeout(t.Context(), registry.timeout)
-	defer cancel()
-
-	key := fmt.Sprintf("%s%s%s", nodeInfoKeyPrefix, node2.ID.String(), nodeInfoKeySuffix)
-	result := registry.client.Do(ctx, registry.client.B().Get().Key(key).Build())
-	assert.NoError(t, result.Error())
-
-	data, err := result.AsBytes()
-	assert.NoError(t, err)
-
-	var node BackupNode
-	err = json.Unmarshal(data, &node)
-	assert.NoError(t, err)
-
-	node.LastHeartbeat = time.Now().UTC().Add(-3 * time.Minute)
-	modifiedData, err := json.Marshal(node)
-	assert.NoError(t, err)
-
-	setCtx, setCancel := context.WithTimeout(t.Context(), registry.timeout)
-	defer setCancel()
-	setResult := registry.client.Do(
-		setCtx,
-		registry.client.B().Set().Key(key).Value(string(modifiedData)).Build(),
-	)
-	assert.NoError(t, setResult.Error())
+	// Make node2 stale by directly setting its heartbeat in the past.
+	registry.nodesMu.Lock()
+	staleNode2 := registry.nodes[node2.ID]
+	staleNode2.LastHeartbeat = time.Now().UTC().Add(-3 * time.Minute)
+	registry.nodes[node2.ID] = staleNode2
+	registry.nodesMu.Unlock()
 
 	nodes, err := registry.GetAvailableNodes()
 	assert.NoError(t, err)
@@ -438,7 +379,7 @@ func Test_GetAvailableNodes_ExcludesStaleNodesFromCache(t *testing.T) {
 	assert.True(t, nodeIDs[node3.ID])
 }
 
-func Test_GetBackupNodesStats_ExcludesStaleNodesFromCache(t *testing.T) {
+func Test_GetBackupNodesStats_ExcludesStaleNodes(t *testing.T) {
 	cache_utils.ClearAllCache()
 	registry := createTestRegistry()
 	node1 := createTestBackupNode()
@@ -462,31 +403,12 @@ func Test_GetBackupNodesStats_ExcludesStaleNodesFromCache(t *testing.T) {
 	err = registry.IncrementBackupsInProgress(node3.ID)
 	assert.NoError(t, err)
 
-	ctx, cancel := context.WithTimeout(t.Context(), registry.timeout)
-	defer cancel()
-
-	key := fmt.Sprintf("%s%s%s", nodeInfoKeyPrefix, node2.ID.String(), nodeInfoKeySuffix)
-	result := registry.client.Do(ctx, registry.client.B().Get().Key(key).Build())
-	assert.NoError(t, result.Error())
-
-	data, err := result.AsBytes()
-	assert.NoError(t, err)
-
-	var node BackupNode
-	err = json.Unmarshal(data, &node)
-	assert.NoError(t, err)
-
-	node.LastHeartbeat = time.Now().UTC().Add(-3 * time.Minute)
-	modifiedData, err := json.Marshal(node)
-	assert.NoError(t, err)
-
-	setCtx, setCancel := context.WithTimeout(t.Context(), registry.timeout)
-	defer setCancel()
-	setResult := registry.client.Do(
-		setCtx,
-		registry.client.B().Set().Key(key).Value(string(modifiedData)).Build(),
-	)
-	assert.NoError(t, setResult.Error())
+	// Make node2 stale by directly setting its heartbeat in the past.
+	registry.nodesMu.Lock()
+	staleNode2 := registry.nodes[node2.ID]
+	staleNode2.LastHeartbeat = time.Now().UTC().Add(-3 * time.Minute)
+	registry.nodes[node2.ID] = staleNode2
+	registry.nodesMu.Unlock()
 
 	stats, err := registry.GetBackupNodesStats()
 	assert.NoError(t, err)
@@ -503,7 +425,7 @@ func Test_GetBackupNodesStats_ExcludesStaleNodesFromCache(t *testing.T) {
 	assert.Equal(t, 1, statsMap[node3.ID])
 }
 
-func Test_CleanupDeadNodes_RemovesNodeInfoAndCounter(t *testing.T) {
+func Test_CleanupDeadNodes_RemovesNodeAndCounter(t *testing.T) {
 	cache_utils.ClearAllCache()
 
 	registry := createTestRegistry()
@@ -522,64 +444,14 @@ func Test_CleanupDeadNodes_RemovesNodeInfoAndCounter(t *testing.T) {
 	err = registry.IncrementBackupsInProgress(node2.ID)
 	assert.NoError(t, err)
 
-	ctx, cancel := context.WithTimeout(t.Context(), registry.timeout)
-	defer cancel()
+	// Make node2 stale by directly setting its heartbeat in the past.
+	registry.nodesMu.Lock()
+	staleNode2 := registry.nodes[node2.ID]
+	staleNode2.LastHeartbeat = time.Now().UTC().Add(-3 * time.Minute)
+	registry.nodes[node2.ID] = staleNode2
+	registry.nodesMu.Unlock()
 
-	key := fmt.Sprintf("%s%s%s", nodeInfoKeyPrefix, node2.ID.String(), nodeInfoKeySuffix)
-	result := registry.client.Do(ctx, registry.client.B().Get().Key(key).Build())
-	assert.NoError(t, result.Error())
-
-	data, err := result.AsBytes()
-	assert.NoError(t, err)
-
-	var node BackupNode
-	err = json.Unmarshal(data, &node)
-	assert.NoError(t, err)
-
-	node.LastHeartbeat = time.Now().UTC().Add(-3 * time.Minute)
-	modifiedData, err := json.Marshal(node)
-	assert.NoError(t, err)
-
-	setCtx, setCancel := context.WithTimeout(t.Context(), registry.timeout)
-	defer setCancel()
-	setResult := registry.client.Do(
-		setCtx,
-		registry.client.B().Set().Key(key).Value(string(modifiedData)).Build(),
-	)
-	assert.NoError(t, setResult.Error())
-
-	err = registry.cleanupDeadNodes()
-	assert.NoError(t, err)
-
-	checkCtx, checkCancel := context.WithTimeout(t.Context(), registry.timeout)
-	defer checkCancel()
-
-	infoKey := fmt.Sprintf("%s%s%s", nodeInfoKeyPrefix, node2.ID.String(), nodeInfoKeySuffix)
-	infoResult := registry.client.Do(checkCtx, registry.client.B().Get().Key(infoKey).Build())
-	assert.Error(t, infoResult.Error())
-
-	counterKey := fmt.Sprintf(
-		"%s%s%s",
-		nodeActiveBackupsPrefix,
-		node2.ID.String(),
-		nodeActiveBackupsSuffix,
-	)
-	counterCtx, counterCancel := context.WithTimeout(t.Context(), registry.timeout)
-	defer counterCancel()
-	counterResult := registry.client.Do(
-		counterCtx,
-		registry.client.B().Get().Key(counterKey).Build(),
-	)
-	assert.Error(t, counterResult.Error())
-
-	activeInfoKey := fmt.Sprintf("%s%s%s", nodeInfoKeyPrefix, node1.ID.String(), nodeInfoKeySuffix)
-	activeCtx, activeCancel := context.WithTimeout(t.Context(), registry.timeout)
-	defer activeCancel()
-	activeResult := registry.client.Do(
-		activeCtx,
-		registry.client.B().Get().Key(activeInfoKey).Build(),
-	)
-	assert.NoError(t, activeResult.Error())
+	registry.cleanupDeadNodes()
 
 	nodes, err := registry.GetAvailableNodes()
 	assert.NoError(t, err)
@@ -590,15 +462,24 @@ func Test_CleanupDeadNodes_RemovesNodeInfoAndCounter(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, stats, 1)
 	assert.Equal(t, node1.ID, stats[0].ID)
+
+	// Verify node2's counter was also removed.
+	registry.countersMu.RLock()
+	_, node2CounterExists := registry.counters[node2.ID]
+	_, node1CounterExists := registry.counters[node1.ID]
+	registry.countersMu.RUnlock()
+
+	assert.False(t, node2CounterExists)
+	assert.True(t, node1CounterExists)
 }
 
 func createTestRegistry() *BackupNodesRegistry {
 	return &BackupNodesRegistry{
-		client:            cache_utils.GetValkeyClient(),
-		logger:            logger.GetLogger(),
-		timeout:           cache_utils.DefaultCacheTimeout,
+		nodes:             make(map[uuid.UUID]BackupNode),
+		counters:          make(map[uuid.UUID]*atomic.Int64),
 		pubsubBackups:     cache_utils.NewPubSubManager(),
 		pubsubCompletions: cache_utils.NewPubSubManager(),
+		logger:            logger.GetLogger(),
 	}
 }
 
@@ -728,7 +609,7 @@ func Test_SubscribeNodeForBackupsAssignment_HandlesInvalidJson(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
-	ctx := t.Context()
+	ctx := context.Background()
 	err = registry.pubsubBackups.Publish(ctx, "backup:submit", "invalid json")
 	assert.NoError(t, err)
 
@@ -974,7 +855,7 @@ func Test_SubscribeForBackupsCompletions_HandlesInvalidJson(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
-	ctx := t.Context()
+	ctx := context.Background()
 	err = registry.pubsubCompletions.Publish(ctx, "backup:completion", "invalid json")
 	assert.NoError(t, err)
 

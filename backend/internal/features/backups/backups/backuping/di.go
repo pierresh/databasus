@@ -37,12 +37,13 @@ var backupCleaner = &BackupCleaner{
 }
 
 var backupNodesRegistry = &BackupNodesRegistry{
-	cache_utils.GetValkeyClient(),
-	logger.GetLogger(),
-	cache_utils.DefaultCacheTimeout,
-	cache_utils.NewPubSubManager(),
-	cache_utils.NewPubSubManager(),
-	atomic.Bool{},
+	nodesMu:           sync.RWMutex{},
+	nodes:             make(map[uuid.UUID]BackupNode),
+	countersMu:        sync.RWMutex{},
+	counters:          make(map[uuid.UUID]*atomic.Int64),
+	pubsubBackups:     cache_utils.NewPubSubManager(),
+	pubsubCompletions: cache_utils.NewPubSubManager(),
+	logger:            logger.GetLogger(),
 }
 
 func getNodeID() uuid.UUID {

@@ -11,7 +11,7 @@ var agentRepository = &AgentRepository{}
 var agentService = &AgentService{
 	agentRepository,
 	audit_logs.GetAuditLogService(),
-	cache_utils.NewRateLimiter(cache_utils.GetValkeyClient()),
+	cache_utils.NewRateLimiter(),
 	logger.GetLogger(),
 	nil,
 }

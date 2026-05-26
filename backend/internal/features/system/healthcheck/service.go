@@ -1,11 +1,9 @@
 package system_healthcheck
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	"databasus-backend/internal/config"
 	"databasus-backend/internal/features/backups/backups/backuping"
@@ -13,7 +11,6 @@ import (
 	verification_agents "databasus-backend/internal/features/verification/agents"
 	verification_runs "databasus-backend/internal/features/verification/runs"
 	"databasus-backend/internal/storage"
-	cache_utils "databasus-backend/internal/util/cache"
 	"databasus-backend/internal/util/tools"
 )
 
@@ -29,16 +26,6 @@ func (s *HealthcheckService) IsHealthy() error {
 }
 
 func (s *HealthcheckService) performHealthCheck() error {
-	// Check if cache is available with PING
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-
-	client := cache_utils.GetValkeyClient()
-	pingResult := client.Do(ctx, client.B().Ping().Build())
-	if pingResult.Error() != nil {
-		return errors.New("cannot connect to valkey")
-	}
-
 	diskUsage, err := s.diskService.GetDiskUsage()
 	if err != nil {
 		return errors.New("cannot get disk usage")

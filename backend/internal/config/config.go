@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -27,14 +28,8 @@ type EnvVariables struct {
 	EnvMode   env_utils.EnvMode `env:"ENV_MODE" required:"true"`
 
 	// Internal database
-	DatabaseDsn     string `env:"DATABASE_DSN"      required:"true"`
+	DatabaseDsn     string `env:"DATABASE_DSN"`
 	TestDatabaseDsn string `env:"TEST_DATABASE_DSN"`
-	// Internal Valkey
-	ValkeyHost     string `env:"VALKEY_HOST"     required:"true"`
-	ValkeyPort     string `env:"VALKEY_PORT"     required:"true"`
-	ValkeyUsername string `env:"VALKEY_USERNAME"`
-	ValkeyPassword string `env:"VALKEY_PASSWORD"`
-	ValkeyIsSsl    bool   `env:"VALKEY_IS_SSL"   required:"true"`
 
 	IsCloud       bool   `env:"IS_CLOUD"`
 	TestLocalhost string `env:"TEST_LOCALHOST"`
@@ -145,6 +140,13 @@ func GetEnv() *EnvVariables {
 	return &env
 }
 
+// IsStandaloneMode returns true when --standalone was passed on the command
+// line.  It is safe to call before GetEnv() is fully initialised because it
+// only inspects os.Args.
+func IsStandaloneMode() bool {
+	return slices.Contains(os.Args, "--standalone")
+}
+
 func loadEnvVariables() {
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -166,14 +168,18 @@ func loadEnvVariables() {
 		backendRoot = parent
 	}
 
-	envPath := filepath.Join(filepath.Dir(backendRoot), ".env")
+	if IsStandaloneMode() {
+		loadStandaloneDefaults(backendRoot)
+	} else {
+		envPath := filepath.Join(filepath.Dir(backendRoot), ".env")
 
-	log.Info("Trying to load .env", "path", envPath)
-	if err := godotenv.Load(envPath); err != nil {
-		log.Error("Error loading .env file from repo root", "path", envPath, "error", err)
-		os.Exit(1)
+		log.Info("Trying to load .env", "path", envPath)
+		if err := godotenv.Load(envPath); err != nil {
+			log.Error("Error loading .env file from repo root", "path", envPath, "error", err)
+			os.Exit(1)
+		}
+		log.Info("Successfully loaded .env", "path", envPath)
 	}
-	log.Info("Successfully loaded .env", "path", envPath)
 
 	// Empty values for non-string fields (e.g. SMTP_PORT=) crash cleanenv's
 	// strconv parsing. Drop them so cleanenv falls back to the Go zero value.
@@ -224,7 +230,9 @@ func loadEnvVariables() {
 		env.DatabaseDsn = externalDsn
 	}
 
-	if env.DatabaseDsn == "" {
+	// In standalone mode DATABASE_DSN is injected by main() after embedded
+	// Postgres starts; skip the empty check here.
+	if !IsStandaloneMode() && env.DatabaseDsn == "" {
 		log.Error("DATABASE_DSN is empty")
 		os.Exit(1)
 	}
@@ -253,46 +261,6 @@ func loadEnvVariables() {
 	if env.TestLocalhost == "" {
 		env.TestLocalhost = "localhost"
 	}
-
-	// Valkey
-	if env.ValkeyHost == "" {
-		log.Error("VALKEY_HOST is empty")
-		os.Exit(1)
-	}
-	if env.ValkeyPort == "" {
-		log.Error("VALKEY_PORT is empty")
-		os.Exit(1)
-	}
-
-	// Check for external Valkey override
-	if externalValkeyHost := os.Getenv("DANGEROUS_VALKEY_HOST"); externalValkeyHost != "" {
-		log.Warn(
-			"Using DANGEROUS_VALKEY_* variables - connecting to external Valkey instead of internal instance",
-		)
-		env.ValkeyHost = externalValkeyHost
-
-		if externalValkeyPort := os.Getenv("DANGEROUS_VALKEY_PORT"); externalValkeyPort != "" {
-			env.ValkeyPort = externalValkeyPort
-		}
-		if externalValkeyUsername := os.Getenv("DANGEROUS_VALKEY_USERNAME"); externalValkeyUsername != "" {
-			env.ValkeyUsername = externalValkeyUsername
-		}
-		if externalValkeyPassword := os.Getenv("DANGEROUS_VALKEY_PASSWORD"); externalValkeyPassword != "" {
-			env.ValkeyPassword = externalValkeyPassword
-		}
-		if externalValkeyIsSsl := os.Getenv("DANGEROUS_VALKEY_IS_SSL"); externalValkeyIsSsl != "" {
-			env.ValkeyIsSsl = externalValkeyIsSsl == "true"
-		}
-	}
-
-	// Store the data and temp folders one level below the root
-	// (projectRoot/databasus-data -> /databasus-data)
-	env.DataFolder = filepath.Join(filepath.Dir(backendRoot), "databasus-data", "backups")
-	env.TempFolder = filepath.Join(filepath.Dir(backendRoot), "databasus-data", "temp")
-	env.SecretKeyPath = filepath.Join(filepath.Dir(backendRoot), "databasus-data", "secret.key")
-	env.TelemetryInstancePath = filepath.Join(
-		filepath.Dir(backendRoot), "databasus-data", "instance.json",
-	)
 
 	if env.IsTesting {
 		if env.TestPostgres12Port == "" {
@@ -379,7 +347,40 @@ func loadEnvVariables() {
 	env.TrialStorageGB = 20
 	env.GracePeriod = 30 * 24 * time.Hour
 
+	// Store the data and temp folders one level below the root
+	// (projectRoot/databasus-data -> /databasus-data)
+	env.DataFolder = filepath.Join(filepath.Dir(backendRoot), "databasus-data", "backups")
+	env.TempFolder = filepath.Join(filepath.Dir(backendRoot), "databasus-data", "temp")
+	env.SecretKeyPath = filepath.Join(filepath.Dir(backendRoot), "databasus-data", "secret.key")
+	env.TelemetryInstancePath = filepath.Join(
+		filepath.Dir(backendRoot), "databasus-data", "instance.json",
+	)
+
 	log.Info("Environment variables loaded successfully!")
+}
+
+// loadStandaloneDefaults sets sensible environment defaults for the
+// --standalone (no Docker, no .env file) deployment mode.
+func loadStandaloneDefaults(backendRoot string) {
+	setIfEmpty := func(key, value string) {
+		if os.Getenv(key) == "" {
+			os.Setenv(key, value)
+		}
+	}
+
+	setIfEmpty("ENV_MODE", "production")
+	setIfEmpty("IS_DISABLE_ANONYMOUS_TELEMETRY", "true")
+	setIfEmpty("SHOW_DB_INSTALLATION_VERIFICATION_LOGS", "true")
+
+	// DATABASE_DSN is injected by main() once embedded Postgres is running.
+	// Leave it empty here; the validation in loadEnvVariables is skipped for
+	// standalone mode.
+
+	dataDir := filepath.Join(filepath.Dir(backendRoot), "databasus-data")
+	setIfEmpty("DATA_FOLDER", filepath.Join(dataDir, "backups"))
+	setIfEmpty("TEMP_FOLDER", filepath.Join(dataDir, "temp"))
+
+	log.Info("standalone mode: using built-in defaults, no .env required")
 }
 
 func unsetEmptyEnvVars() {

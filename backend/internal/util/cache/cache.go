@@ -1,124 +1,102 @@
 package cache_utils
 
 import (
-	"context"
-	"crypto/tls"
 	"sync"
-
-	"github.com/valkey-io/valkey-go"
-
-	"databasus-backend/internal/config"
+	"time"
 )
 
-var valkeyClient valkey.Client
-
-var initCache = sync.OnceFunc(func() {
-	env := config.GetEnv()
-
-	options := valkey.ClientOption{
-		InitAddress: []string{env.ValkeyHost + ":" + env.ValkeyPort},
-		Password:    env.ValkeyPassword,
-		Username:    env.ValkeyUsername,
-	}
-
-	if env.ValkeyIsSsl {
-		options.TLSConfig = &tls.Config{
-			ServerName: env.ValkeyHost,
-		}
-	}
-
-	client, err := valkey.NewClient(options)
-	if err != nil {
-		panic(err)
-	}
-
-	valkeyClient = client
-})
-
-func getCache() valkey.Client {
-	initCache()
-	return valkeyClient
+type cacheEntry[T any] struct {
+	value     T
+	expiresAt time.Time
 }
 
-func GetValkeyClient() valkey.Client {
-	return getCache()
+// CacheUtil is a generic in-process key-value store with per-entry TTL.
+// It replaces the previous Valkey-backed implementation; the public API
+// (Get/Set/SetWithExpiration/GetAndDelete/Invalidate) is unchanged.
+type CacheUtil[T any] struct {
+	mu      sync.RWMutex
+	data    map[string]cacheEntry[T]
+	prefix  string
+	timeout time.Duration // kept for API symmetry
+	expiry  time.Duration
 }
 
-func TestCacheConnection() {
-	// Get Valkey client from cache package
-	client := getCache()
-
-	// Create a simple test cache util for strings
-	cacheUtil := NewCacheUtil[string](client, "test:")
-
-	// Test data
-	testKey := "connection_test"
-	testValue := "valkey_is_working"
-
-	// Test Set operation
-	cacheUtil.Set(testKey, &testValue)
-
-	// Test Get operation
-	retrievedValue := cacheUtil.Get(testKey)
-
-	// Verify the value was retrieved correctly
-	if retrievedValue == nil {
-		panic("Cache test failed: could not retrieve cached value")
-	}
-
-	if *retrievedValue != testValue {
-		panic("Cache test failed: retrieved value does not match expected")
-	}
-
-	// Clean up - remove test key
-	cacheUtil.Invalidate(testKey)
-
-	// Verify cleanup worked
-	cleanupCheck := cacheUtil.Get(testKey)
-	if cleanupCheck != nil {
-		panic("Cache test failed: test key was not properly invalidated")
+func NewCacheUtil[T any](prefix string) *CacheUtil[T] {
+	return &CacheUtil[T]{
+		data:    make(map[string]cacheEntry[T]),
+		prefix:  prefix,
+		timeout: DefaultCacheTimeout,
+		expiry:  DefaultCacheExpiry,
 	}
 }
 
-func ClearAllCache() error {
-	pattern := "*"
-	cursor := uint64(0)
-	batchSize := int64(100)
+func (c *CacheUtil[T]) Get(key string) *T {
+	fullKey := c.prefix + key
 
-	cacheUtil := NewCacheUtil[string](getCache(), "")
+	c.mu.RLock()
+	entry, ok := c.data[fullKey]
+	c.mu.RUnlock()
 
-	for {
-		ctx, cancel := context.WithTimeout(context.Background(), DefaultQueueTimeout)
-
-		result := cacheUtil.client.Do(
-			ctx,
-			cacheUtil.client.B().Scan().Cursor(cursor).Match(pattern).Count(batchSize).Build(),
-		)
-		cancel()
-
-		if result.Error() != nil {
-			return result.Error()
-		}
-
-		scanResult, err := result.AsScanEntry()
-		if err != nil {
-			return err
-		}
-
-		if len(scanResult.Elements) > 0 {
-			delCtx, delCancel := context.WithTimeout(context.Background(), cacheUtil.timeout)
-			cacheUtil.client.Do(
-				delCtx,
-				cacheUtil.client.B().Del().Key(scanResult.Elements...).Build(),
-			)
-			delCancel()
-		}
-
-		cursor = scanResult.Cursor
-		if cursor == 0 {
-			break
-		}
+	if !ok {
+		return nil
 	}
 
-	return nil
+	if time.Now().After(entry.expiresAt) {
+		c.mu.Lock()
+		delete(c.data, fullKey)
+		c.mu.Unlock()
+		return nil
+	}
+
+	value := entry.value
+	return &value
+}
+
+func (c *CacheUtil[T]) Set(key string, item *T) {
+	c.SetWithExpiration(key, item, c.expiry)
+}
+
+func (c *CacheUtil[T]) SetWithExpiration(key string, item *T, expiry time.Duration) {
+	fullKey := c.prefix + key
+
+	c.mu.Lock()
+	c.data[fullKey] = cacheEntry[T]{
+		value:     *item,
+		expiresAt: time.Now().Add(expiry),
+	}
+	c.mu.Unlock()
+}
+
+func (c *CacheUtil[T]) GetAndDelete(key string) *T {
+	fullKey := c.prefix + key
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	entry, ok := c.data[fullKey]
+	if !ok {
+		return nil
+	}
+
+	delete(c.data, fullKey)
+
+	if time.Now().After(entry.expiresAt) {
+		return nil
+	}
+
+	value := entry.value
+	return &value
+}
+
+func (c *CacheUtil[T]) Invalidate(key string) {
+	c.mu.Lock()
+	delete(c.data, c.prefix+key)
+	c.mu.Unlock()
+}
+
+// ClearAll removes all entries. Used by tests to reset state between runs.
+func (c *CacheUtil[T]) ClearAll() {
+	c.mu.Lock()
+	c.data = make(map[string]cacheEntry[T])
+	c.mu.Unlock()
 }

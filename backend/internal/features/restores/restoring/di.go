@@ -1,6 +1,7 @@
 package restoring
 
 import (
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -21,17 +22,14 @@ import (
 var restoreRepository = &restores_core.RestoreRepository{}
 
 var restoreNodesRegistry = &RestoreNodesRegistry{
-	client:            cache_utils.GetValkeyClient(),
-	logger:            logger.GetLogger(),
-	timeout:           cache_utils.DefaultCacheTimeout,
+	nodesMu:           sync.RWMutex{},
+	nodes:             make(map[uuid.UUID]RestoreNode),
+	countersMu:        sync.RWMutex{},
+	counters:          make(map[uuid.UUID]*atomic.Int64),
 	pubsubRestores:    cache_utils.NewPubSubManager(),
 	pubsubCompletions: cache_utils.NewPubSubManager(),
+	logger:            logger.GetLogger(),
 }
-
-var restoreDatabaseCache = cache_utils.NewCacheUtil[RestoreDatabaseCache](
-	cache_utils.GetValkeyClient(),
-	"restore_db:",
-)
 
 var restoreCancelManager = tasks_cancellation.GetTaskCancelManager()
 

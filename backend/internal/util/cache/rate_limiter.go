@@ -1,85 +1,69 @@
 package cache_utils
 
 import (
-	"context"
-	"fmt"
+	"sync"
 	"time"
-
-	"github.com/google/uuid"
-	"github.com/valkey-io/valkey-go"
 )
 
-type RateLimiter struct {
-	client valkey.Client
+type windowEntry struct {
+	mu         sync.Mutex
+	timestamps []time.Time
 }
 
-func NewRateLimiter(client valkey.Client) *RateLimiter {
+// RateLimiter is an in-process sliding-window rate limiter.
+// It replaces the previous Valkey-backed implementation; the public API
+// (CheckLimit) is unchanged. Unlike the distributed implementation this one
+// is per-process only — adequate for single-binary standalone deployments.
+type RateLimiter struct {
+	mu      sync.RWMutex
+	windows map[string]*windowEntry
+}
+
+func NewRateLimiter() *RateLimiter {
 	return &RateLimiter{
-		client: client,
+		windows: make(map[string]*windowEntry),
 	}
 }
 
+// CheckLimit returns true when the request is allowed (under the limit).
+// identifier is typically an IP or user ID; endpoint is a stable name for
+// the route being guarded.
 func (r *RateLimiter) CheckLimit(
 	identifier string,
 	endpoint string,
 	maxRequests int,
 	windowDuration time.Duration,
 ) (bool, error) {
-	requestID := uuid.New().String()
-	keyPrefix := fmt.Sprintf("ratelimit:%s:%s", endpoint, identifier)
-	fullKey := fmt.Sprintf("%s:%s", keyPrefix, requestID)
+	key := endpoint + ":" + identifier
+	now := time.Now()
+	cutoff := now.Add(-windowDuration)
 
-	ctx, cancel := context.WithTimeout(context.Background(), DefaultCacheTimeout)
-	defer cancel()
+	r.mu.RLock()
+	entry, exists := r.windows[key]
+	r.mu.RUnlock()
 
-	// Set the key with TTL
-	setCmd := r.client.B().
-		Set().
-		Key(fullKey).
-		Value("1").
-		ExSeconds(int64(windowDuration.Seconds())).
-		Build()
-	if err := r.client.Do(ctx, setCmd).Error(); err != nil {
-		return true, fmt.Errorf("failed to set rate limit key: %w", err)
+	if !exists {
+		r.mu.Lock()
+		// Re-check under write lock to avoid duplicate creation.
+		entry, exists = r.windows[key]
+		if !exists {
+			entry = &windowEntry{}
+			r.windows[key] = entry
+		}
+		r.mu.Unlock()
 	}
 
-	// Count keys matching the pattern
-	count, err := r.countKeys(keyPrefix)
-	if err != nil {
-		return true, fmt.Errorf("failed to count rate limit keys: %w", err)
-	}
+	entry.mu.Lock()
+	defer entry.mu.Unlock()
 
-	return count <= maxRequests, nil
-}
-
-func (r *RateLimiter) countKeys(keyPrefix string) (int, error) {
-	pattern := keyPrefix + ":*"
-	cursor := uint64(0)
-	totalCount := 0
-
-	for {
-		ctx, cancel := context.WithTimeout(context.Background(), DefaultCacheTimeout)
-
-		scanCmd := r.client.B().Scan().Cursor(cursor).Match(pattern).Count(100).Build()
-		result := r.client.Do(ctx, scanCmd)
-		cancel()
-
-		if result.Error() != nil {
-			return 0, result.Error()
-		}
-
-		scanResult, err := result.AsScanEntry()
-		if err != nil {
-			return 0, err
-		}
-
-		totalCount += len(scanResult.Elements)
-		cursor = scanResult.Cursor
-
-		if cursor == 0 {
-			break
+	// Drop expired timestamps.
+	valid := entry.timestamps[:0]
+	for _, ts := range entry.timestamps {
+		if ts.After(cutoff) {
+			valid = append(valid, ts)
 		}
 	}
+	entry.timestamps = append(valid, now)
 
-	return totalCount, nil
+	return len(entry.timestamps) <= maxRequests, nil
 }

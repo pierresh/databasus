@@ -103,6 +103,7 @@ require (
 	github.com/dropbox/dropbox-sdk-go-unofficial/v6 v6.0.5 // indirect
 	github.com/emersion/go-message v0.18.2 // indirect
 	github.com/emersion/go-vcard v0.0.0-20241024213814-c9703dde27ff // indirect
+	github.com/fergusstrange/embedded-postgres v1.34.0 // indirect
 	github.com/flynn/noise v1.1.0 // indirect
 	github.com/ggicci/httpin v0.19.0 // indirect
 	github.com/ggicci/owl v0.8.2 // indirect
@@ -184,6 +185,7 @@ require (
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
 	github.com/xdg-go/scram v1.1.2 // indirect
 	github.com/xdg-go/stringprep v1.0.4 // indirect
+	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect
 	github.com/youmark/pkcs8 v0.0.0-20240726163527-a2c0da244d78 // indirect
 	github.com/yunify/qingstor-sdk-go/v3 v3.2.0 // indirect
 	github.com/zeebo/blake3 v0.2.4 // indirect

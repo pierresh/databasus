@@ -7,7 +7,7 @@ import (
 
 var userController = &UserController{
 	users_services.GetUserService(),
-	cache_utils.NewRateLimiter(cache_utils.GetValkeyClient()),
+	cache_utils.NewRateLimiter(),
 }
 
 var settingsController = &SettingsController{

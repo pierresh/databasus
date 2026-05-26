@@ -2,13 +2,12 @@ package backups_download
 
 import (
 	"databasus-backend/internal/config"
-	cache_utils "databasus-backend/internal/util/cache"
 	"databasus-backend/internal/util/logger"
 )
 
 var downloadTokenRepository = &DownloadTokenRepository{}
 
-var downloadTracker = NewDownloadTracker(cache_utils.GetValkeyClient())
+var downloadTracker = NewDownloadTracker()
 
 var (
 	bandwidthManager               *BandwidthManager
