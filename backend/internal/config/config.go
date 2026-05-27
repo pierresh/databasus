@@ -347,21 +347,29 @@ func loadEnvVariables() {
 	env.TrialStorageGB = 20
 	env.GracePeriod = 30 * 24 * time.Hour
 
-	// Store the data and temp folders one level below the root
-	// (projectRoot/databasus-data -> /databasus-data)
-	env.DataFolder = filepath.Join(filepath.Dir(backendRoot), "databasus-data", "backups")
-	env.TempFolder = filepath.Join(filepath.Dir(backendRoot), "databasus-data", "temp")
-	env.SecretKeyPath = filepath.Join(filepath.Dir(backendRoot), "databasus-data", "secret.key")
-	env.TelemetryInstancePath = filepath.Join(
-		filepath.Dir(backendRoot), "databasus-data", "instance.json",
-	)
+	// In standalone mode use the directory that contains the running executable
+	// as the data root so all persistent state lives next to the binary.
+	// In dev / Docker mode use the directory one level above the repo root.
+	dataRoot := filepath.Dir(backendRoot)
+	if IsStandaloneMode() {
+		if exe, err := os.Executable(); err == nil {
+			dataRoot = filepath.Dir(exe)
+		}
+	}
+
+	env.DataFolder = filepath.Join(dataRoot, "databasus-data", "backups")
+	env.TempFolder = filepath.Join(dataRoot, "databasus-data", "temp")
+	env.SecretKeyPath = filepath.Join(dataRoot, "databasus-data", "secret.key")
+	env.TelemetryInstancePath = filepath.Join(dataRoot, "databasus-data", "instance.json")
 
 	log.Info("Environment variables loaded successfully!")
 }
 
 // loadStandaloneDefaults sets sensible environment defaults for the
 // --standalone (no Docker, no .env file) deployment mode.
-func loadStandaloneDefaults(backendRoot string) {
+// Data paths (DataFolder, TempFolder, …) are computed from os.Executable()
+// later in loadEnvVariables; no need to set them here.
+func loadStandaloneDefaults(_ string) {
 	setIfEmpty := func(key, value string) {
 		if os.Getenv(key) == "" {
 			os.Setenv(key, value)
@@ -375,10 +383,6 @@ func loadStandaloneDefaults(backendRoot string) {
 	// DATABASE_DSN is injected by main() once embedded Postgres is running.
 	// Leave it empty here; the validation in loadEnvVariables is skipped for
 	// standalone mode.
-
-	dataDir := filepath.Join(filepath.Dir(backendRoot), "databasus-data")
-	setIfEmpty("DATA_FOLDER", filepath.Join(dataDir, "backups"))
-	setIfEmpty("TEMP_FOLDER", filepath.Join(dataDir, "temp"))
 
 	log.Info("standalone mode: using built-in defaults, no .env required")
 }

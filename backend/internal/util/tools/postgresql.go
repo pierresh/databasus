@@ -62,7 +62,7 @@ func checkPostgresql() []ToolCheckResult {
 			Version: string(v),
 			BinDir:  binDir,
 			Errors:  checkBinDir(binDir, postgresqlRequired),
-			IsFatal: true,
+			IsFatal: !isStandaloneMode(),
 		})
 	}
 

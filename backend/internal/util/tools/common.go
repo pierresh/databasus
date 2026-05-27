@@ -7,8 +7,15 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 )
+
+// isStandaloneMode mirrors config.IsStandaloneMode() to avoid a circular
+// import between the tools and config packages.
+func isStandaloneMode() bool {
+	return slices.Contains(os.Args, "--standalone")
+}
 
 // withExeOnWindows appends ".exe" when running on Windows.
 func withExeOnWindows(name string) string {

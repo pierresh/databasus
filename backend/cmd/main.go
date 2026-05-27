@@ -68,6 +68,15 @@ import (
 func main() {
 	log := logger.GetLogger()
 
+	if config.IsStandaloneMode() {
+		stopEmbeddedPG, err := initStandaloneMode(log)
+		if err != nil {
+			log.Error("failed to initialise standalone mode", "error", err)
+			os.Exit(1)
+		}
+		defer stopEmbeddedPG()
+	}
+
 	if config.GetEnv().IsPrimaryNode {
 		log.Info("Clearing cache...")
 
@@ -79,7 +88,11 @@ func main() {
 	}
 
 	if config.GetEnv().IsPrimaryNode {
-		runMigrations(log)
+		if config.IsStandaloneMode() {
+			log.Info("Skipping CLI migrations (already applied during embedded PostgreSQL init)")
+		} else {
+			runMigrations(log)
+		}
 	} else {
 		log.Info("Skipping migrations (IS_PRIMARY_NODE is false)")
 	}
@@ -142,6 +155,9 @@ func handlePasswordReset(log *slog.Logger) {
 
 	newPassword := flag.String("new-password", "", "Set a new password for the user")
 	email := flag.String("email", "", "Email of the user to reset password")
+	// Register --standalone so flag.Parse() does not reject it.
+	// The value is read directly from os.Args by config.IsStandaloneMode().
+	_ = flag.Bool("standalone", false, "Run without Docker using embedded PostgreSQL")
 
 	flag.Parse()
 
@@ -502,6 +518,15 @@ func ginRecoveryWithLogger(log *slog.Logger) gin.HandlerFunc {
 
 func mountFrontend(ginApp *gin.Engine) {
 	staticDir := "./ui/build"
+
+	// In standalone mode the binary may not run from the repo root, so resolve
+	// the UI directory relative to the executable instead of the working dir.
+	if config.IsStandaloneMode() {
+		if exe, err := os.Executable(); err == nil {
+			staticDir = filepath.Join(filepath.Dir(exe), "ui", "build")
+		}
+	}
+
 	ginApp.NoRoute(func(c *gin.Context) {
 		path := filepath.Join(staticDir, c.Request.URL.Path)
 
