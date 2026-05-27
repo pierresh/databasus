@@ -1145,3 +1145,83 @@ jobs:
         run: |
           VERSION="${{ needs.determine-version.outputs.new_version }}"
           helm push databasus-${VERSION}.tgz oci://ghcr.io/databasus/charts
+
+  build-windows-standalone:
+    runs-on: ubuntu-latest
+    needs: [determine-version, release]
+    if: ${{ needs.determine-version.outputs.should_release == 'true' }}
+    permissions:
+      contents: write
+    steps:
+      - name: Check out code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Set up Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version: "1.26.3"
+          cache-dependency-path: backend/go.sum
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+        with:
+          package_json_file: frontend/package.json
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "20"
+          cache: "pnpm"
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Build frontend
+        run: |
+          cd frontend
+          pnpm install --frozen-lockfile
+          VITE_APP_VERSION=${{ needs.determine-version.outputs.new_version }} pnpm build
+
+      - name: Generate swagger docs
+        run: |
+          go install github.com/swaggo/swag/cmd/swag@v1.16.4
+          cd backend
+          swag init -d . -g cmd/main.go -o swagger
+
+      - name: Download Go modules
+        run: |
+          cd backend
+          go mod download
+
+      - name: Cross-compile Windows amd64 binary
+        run: |
+          cd backend
+          GOOS=windows GOARCH=amd64 go build \
+            -ldflags "-s -w" \
+            -o databasus.exe \
+            ./cmd
+
+      - name: Package standalone distribution
+        run: |
+          mkdir -p dist/ui/build dist/assets/tools/win-x64
+
+          # Backend binary
+          cp backend/databasus.exe dist/
+
+          # MySQL and MariaDB client tools (standalone targets MySQL/MariaDB)
+          cp -r assets/tools/win-x64/mysql   dist/assets/tools/win-x64/
+          cp -r assets/tools/win-x64/mariadb dist/assets/tools/win-x64/
+          cp -r assets/tools/win-x64/mongodb dist/assets/tools/win-x64/
+
+          # Frontend (Vite outputs to frontend/dist by default)
+          cp -r frontend/dist/. dist/ui/build/
+
+          cd dist
+          zip -r ../databasus-windows-x64.zip .
+
+      - name: Upload to GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload \
+            "v${{ needs.determine-version.outputs.new_version }}" \
+            databasus-windows-x64.zip \
+            --repo "${{ github.repository }}"
