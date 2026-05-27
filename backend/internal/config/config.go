@@ -169,7 +169,7 @@ func loadEnvVariables() {
 	}
 
 	if IsStandaloneMode() {
-		loadStandaloneDefaults(backendRoot)
+		loadStandaloneDefaults()
 	} else {
 		envPath := filepath.Join(filepath.Dir(backendRoot), ".env")
 
@@ -369,7 +369,7 @@ func loadEnvVariables() {
 // --standalone (no Docker, no .env file) deployment mode.
 // Data paths (DataFolder, TempFolder, …) are computed from os.Executable()
 // later in loadEnvVariables; no need to set them here.
-func loadStandaloneDefaults(_ string) {
+func loadStandaloneDefaults() {
 	setIfEmpty := func(key, value string) {
 		if os.Getenv(key) == "" {
 			os.Setenv(key, value)

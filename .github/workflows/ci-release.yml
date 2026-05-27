@@ -1206,7 +1206,8 @@ jobs:
           # Backend binary
           cp backend/databasus.exe dist/
 
-          # MySQL and MariaDB client tools (standalone targets MySQL/MariaDB)
+          # Client tools: MySQL, MariaDB, MongoDB (PostgreSQL excluded — not
+          # needed for standalone deployments and saves ~60 MB in the package)
           cp -r assets/tools/win-x64/mysql   dist/assets/tools/win-x64/
           cp -r assets/tools/win-x64/mariadb dist/assets/tools/win-x64/
           cp -r assets/tools/win-x64/mongodb dist/assets/tools/win-x64/
@@ -1224,4 +1225,5 @@ jobs:
           gh release upload \
             "v${{ needs.determine-version.outputs.new_version }}" \
             databasus-windows-x64.zip \
-            --repo "${{ github.repository }}"
+            --repo "${{ github.repository }}" \
+            --clobber

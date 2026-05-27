@@ -57,6 +57,16 @@ import (
 	_ "databasus-backend/swagger" // swagger docs
 )
 
+// CLI flags — registered at package level so all parts of main can reference
+// them, and flag.Parse() is called exactly once at the top of main().
+var (
+	flagNewPassword = flag.String("new-password", "", "Set a new password for the user")
+	flagEmail       = flag.String("email", "", "Email of the user to reset password")
+	// --standalone is read early via os.Args (config.IsStandaloneMode) before
+	// flag.Parse() runs. It is registered here so flag.Parse() does not reject it.
+	_ = flag.Bool("standalone", false, "Run without Docker using embedded PostgreSQL")
+)
+
 // @title Databasus Backend API
 // @version 1.0
 // @description API for Databasus
@@ -66,6 +76,8 @@ import (
 // @BasePath /api/v1
 // @schemes http
 func main() {
+	flag.Parse()
+
 	log := logger.GetLogger()
 
 	if config.IsStandaloneMode() {
@@ -153,26 +165,18 @@ func main() {
 func handlePasswordReset(log *slog.Logger) {
 	audit_logs.SetupDependencies()
 
-	newPassword := flag.String("new-password", "", "Set a new password for the user")
-	email := flag.String("email", "", "Email of the user to reset password")
-	// Register --standalone so flag.Parse() does not reject it.
-	// The value is read directly from os.Args by config.IsStandaloneMode().
-	_ = flag.Bool("standalone", false, "Run without Docker using embedded PostgreSQL")
-
-	flag.Parse()
-
-	if *newPassword == "" {
+	if *flagNewPassword == "" {
 		return
 	}
 
 	log.Info("Found reset password command - reseting password...")
 
-	if *email == "" {
+	if *flagEmail == "" {
 		log.Info("No email provided, please provide an email via --email=\"some@email.com\" flag")
 		os.Exit(1)
 	}
 
-	resetPassword(*email, *newPassword, log)
+	resetPassword(*flagEmail, *flagNewPassword, log)
 }
 
 func resetPassword(email, newPassword string, log *slog.Logger) {

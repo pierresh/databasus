@@ -15,11 +15,17 @@ import (
 	"databasus-backend/migrations"
 )
 
-// initStandaloneMode starts embedded PostgreSQL, injects its DSN into the
-// storage layer, and runs all database migrations from the embedded SQL files.
-// Must be called before config.GetEnv() is first invoked (which triggers lazy
-// DB initialisation via storage.GetDb()).
-// The returned cleanup function stops the embedded server on graceful exit.
+// initStandaloneMode starts an embedded PostgreSQL server that Databasus uses
+// as its own internal metadata store (backup configs, schedules, credentials,
+// run history). This is unrelated to which database engines users choose to
+// back up — MySQL, MariaDB, MongoDB, etc. are all still supported as backup
+// targets regardless of this internal database.
+//
+// The function injects the embedded-PG DSN into the storage layer and runs all
+// schema migrations from the embedded SQL files. It must be called before
+// config.GetEnv() is first invoked (which triggers lazy DB initialisation via
+// storage.GetDb()). The returned cleanup function stops the embedded server on
+// graceful exit.
 func initStandaloneMode(log *slog.Logger) (func(), error) {
 	exe, err := os.Executable()
 	if err != nil {
