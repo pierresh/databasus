@@ -26,8 +26,8 @@ const (
 // nodes within a single process. It replaces the previous Valkey-backed
 // implementation; the public API is unchanged so all callers compile as-is.
 type RestoreNodesRegistry struct {
-	nodesMu    sync.RWMutex
-	nodes      map[uuid.UUID]RestoreNode
+	nodesMu sync.RWMutex
+	nodes   map[uuid.UUID]RestoreNode
 
 	countersMu sync.RWMutex
 	counters   map[uuid.UUID]*atomic.Int64

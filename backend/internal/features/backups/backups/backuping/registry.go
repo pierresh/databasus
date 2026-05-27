@@ -29,8 +29,8 @@ const (
 // In single-process deployments the "nodes" are goroutines in the same binary,
 // so in-memory maps replace the distributed Redis/Valkey data structures.
 type BackupNodesRegistry struct {
-	nodesMu    sync.RWMutex
-	nodes      map[uuid.UUID]BackupNode
+	nodesMu sync.RWMutex
+	nodes   map[uuid.UUID]BackupNode
 
 	countersMu sync.RWMutex
 	counters   map[uuid.UUID]*atomic.Int64

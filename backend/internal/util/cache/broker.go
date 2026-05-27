@@ -1,6 +1,7 @@
 package cache_utils
 
 import (
+	"log"
 	"sync"
 
 	"github.com/google/uuid"
@@ -24,6 +25,8 @@ var globalBroker = &inMemoryBroker{
 
 // publish calls every registered handler for the channel, each in its own
 // goroutine to match Valkey's asynchronous delivery semantics.
+// Each goroutine recovers from panics so a misbehaving handler cannot crash
+// the process.
 func (b *inMemoryBroker) publish(channel, message string) {
 	b.mu.RLock()
 	handlers := make([]brokerEntry, len(b.subs[channel]))
@@ -31,7 +34,14 @@ func (b *inMemoryBroker) publish(channel, message string) {
 	b.mu.RUnlock()
 
 	for _, entry := range handlers {
-		go entry.handler(message)
+		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					log.Printf("pub/sub handler panic on channel %q: %v", channel, r)
+				}
+			}()
+			entry.handler(message)
+		}()
 	}
 }
 
@@ -79,10 +89,10 @@ func ResetBroker() {
 	globalBroker.mu.Unlock()
 }
 
-// ClearAllCache resets the in-process pub/sub broker. It replaces the previous
-// Valkey-backed ClearAllCache that flushed the Redis keyspace; tests call it
-// between runs to guarantee a clean subscription state.
+// ClearAllCache resets the in-process pub/sub broker and all registered
+// CacheUtil instances. Tests call it between runs to guarantee a clean state.
 func ClearAllCache() error {
 	ResetBroker()
+	clearAllRegisteredCaches()
 	return nil
 }

@@ -68,8 +68,6 @@ import (
 func main() {
 	log := logger.GetLogger()
 
-	cache_utils.TestCacheConnection()
-
 	if config.GetEnv().IsPrimaryNode {
 		log.Info("Clearing cache...")
 

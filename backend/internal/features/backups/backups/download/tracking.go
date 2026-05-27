@@ -29,14 +29,11 @@ func NewDownloadTracker() *DownloadTracker {
 }
 
 func (t *DownloadTracker) AcquireDownloadLock(userID uuid.UUID) error {
-	key := userID.String()
+	value := downloadLockValue
 
-	if t.cache.Get(key) != nil {
+	if !t.cache.SetIfAbsent(userID.String(), &value, downloadLockTTL) {
 		return ErrDownloadAlreadyInProgress
 	}
-
-	value := downloadLockValue
-	t.cache.SetWithExpiration(key, &value, downloadLockTTL)
 
 	return nil
 }

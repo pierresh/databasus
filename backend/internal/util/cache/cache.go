@@ -5,6 +5,37 @@ import (
 	"time"
 )
 
+// resettable is implemented by every CacheUtil instance so ClearAllCache can
+// wipe all in-process caches in a single call (the same effect as the previous
+// Redis FLUSHALL).
+type resettable interface {
+	clearAll()
+}
+
+var (
+	globalCachesMu sync.Mutex
+	globalCaches   []resettable
+)
+
+func registerCache(c resettable) {
+	globalCachesMu.Lock()
+	globalCaches = append(globalCaches, c)
+	globalCachesMu.Unlock()
+}
+
+func clearAllRegisteredCaches() {
+	globalCachesMu.Lock()
+	caches := make([]resettable, len(globalCaches))
+	copy(caches, globalCaches)
+	globalCachesMu.Unlock()
+
+	for _, c := range caches {
+		c.clearAll()
+	}
+}
+
+// -----------------------------------------------------------------------
+
 type cacheEntry[T any] struct {
 	value     T
 	expiresAt time.Time
@@ -12,7 +43,7 @@ type cacheEntry[T any] struct {
 
 // CacheUtil is a generic in-process key-value store with per-entry TTL.
 // It replaces the previous Valkey-backed implementation; the public API
-// (Get/Set/SetWithExpiration/GetAndDelete/Invalidate) is unchanged.
+// (Get/Set/SetWithExpiration/SetIfAbsent/GetAndDelete/Invalidate) is unchanged.
 type CacheUtil[T any] struct {
 	mu      sync.RWMutex
 	data    map[string]cacheEntry[T]
@@ -22,12 +53,14 @@ type CacheUtil[T any] struct {
 }
 
 func NewCacheUtil[T any](prefix string) *CacheUtil[T] {
-	return &CacheUtil[T]{
+	c := &CacheUtil[T]{
 		data:    make(map[string]cacheEntry[T]),
 		prefix:  prefix,
 		timeout: DefaultCacheTimeout,
 		expiry:  DefaultCacheExpiry,
 	}
+	registerCache(c)
+	return c
 }
 
 func (c *CacheUtil[T]) Get(key string) *T {
@@ -67,6 +100,28 @@ func (c *CacheUtil[T]) SetWithExpiration(key string, item *T, expiry time.Durati
 	c.mu.Unlock()
 }
 
+// SetIfAbsent sets key to value only when no live entry exists for that key.
+// It returns true if the value was stored (key was absent or expired), false if
+// an existing live entry was found. The check and store are performed under the
+// write lock so there is no TOCTOU race between callers.
+func (c *CacheUtil[T]) SetIfAbsent(key string, item *T, expiry time.Duration) bool {
+	fullKey := c.prefix + key
+	now := time.Now()
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if entry, ok := c.data[fullKey]; ok && now.Before(entry.expiresAt) {
+		return false
+	}
+
+	c.data[fullKey] = cacheEntry[T]{
+		value:     *item,
+		expiresAt: now.Add(expiry),
+	}
+	return true
+}
+
 func (c *CacheUtil[T]) GetAndDelete(key string) *T {
 	fullKey := c.prefix + key
 
@@ -96,6 +151,11 @@ func (c *CacheUtil[T]) Invalidate(key string) {
 
 // ClearAll removes all entries. Used by tests to reset state between runs.
 func (c *CacheUtil[T]) ClearAll() {
+	c.clearAll()
+}
+
+// clearAll is the unexported implementation used by the resettable interface.
+func (c *CacheUtil[T]) clearAll() {
 	c.mu.Lock()
 	c.data = make(map[string]cacheEntry[T])
 	c.mu.Unlock()
