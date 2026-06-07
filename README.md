@@ -123,7 +123,16 @@ It is also important for Databasus that you are able to decrypt and restore back
 
 ## 📦 Installation
 
-Download `databasus-windows-x64.zip` from the [GitHub releases page](https://github.com/pierresh/databasus/releases) and extract it to a dedicated directory, for example `C:\databasus\`:
+Pre-built binaries are published to the [GitHub releases page](https://github.com/pierresh/databasus/releases) automatically when a version tag is pushed:
+
+```bash
+git tag windows-v1.0.0
+git push origin windows-v1.0.0
+```
+
+The CI builds `databasus-windows-x64.zip` and attaches it to the release. If no release is available yet, follow the [Building from source](#-building-from-source) section below.
+
+Download `databasus-windows-x64.zip` and extract it to a dedicated directory, for example `C:\databasus\`:
 
 ```
 C:\databasus\
