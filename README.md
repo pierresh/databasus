@@ -1,20 +1,19 @@
 <div align="center">
   <img src="assets/logo.svg" alt="Databasus Logo" width="250"/>
 
-  <h3>PostgreSQL backup tool (with MySQL\MariaDB and MongoDB support)</h3>
-  <p>Databasus is a free, open source and self-hosted tool to backup databases (primarily PostgreSQL). Make backups with different storages (S3, Google Drive, FTP, etc.) and notifications about progress (Slack, Discord, Telegram, etc.). With focus on Point-In-Time Recovery and restore verification</p>
+  <h3>MySQL/MariaDB backup tool for Windows Server — standalone <code>.exe</code>, no Docker required</h3>
+  <p>This is a fork of <a href="https://github.com/databasus/databasus">databasus/databasus</a> focused on Windows Server deployment as a self-contained <code>.exe</code>. No Docker or Kubernetes required. Primary backup targets are MySQL and MariaDB. The original project also supports PostgreSQL, MongoDB, Docker-based and Kubernetes deployments — see the upstream repository.</p>
   
   <!-- Badges -->
-   [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-336791?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
   [![MySQL](https://img.shields.io/badge/MySQL-4479A1?logo=mysql&logoColor=white)](https://www.mysql.com/)
   [![MariaDB](https://img.shields.io/badge/MariaDB-003545?logo=mariadb&logoColor=white)](https://mariadb.org/)
   [![MongoDB](https://img.shields.io/badge/MongoDB-47A248?logo=mongodb&logoColor=white)](https://www.mongodb.com/)
   <br />
   [![Apache 2.0 License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-  [![Docker Pulls](https://img.shields.io/docker/pulls/databasus/databasus?color=brightgreen)](https://hub.docker.com/r/databasus/databasus)
-  [![Platform](https://img.shields.io/badge/platform-linux%20%7C%20macos%20%7C%20windows-lightgrey)](https://github.com/databasus/databasus)
-  [![Self Hosted](https://img.shields.io/badge/self--hosted-yes-brightgreen)](https://github.com/databasus/databasus)
-  [![Open Source](https://img.shields.io/badge/open%20source-❤️-red)](https://github.com/databasus/databasus)
+  [![Platform](https://img.shields.io/badge/platform-windows--server-0078d4?logo=windows)](https://github.com/pierresh/databasus)
+  [![Self Hosted](https://img.shields.io/badge/self--hosted-yes-brightgreen)](https://github.com/pierresh/databasus)
+  [![Open Source](https://img.shields.io/badge/open%20source-❤️-red)](https://github.com/pierresh/databasus)
+  [![Fork of](https://img.shields.io/badge/fork%20of-databasus%2Fdatabasus-grey)](https://github.com/databasus/databasus)
 
   <p>
     <a href="#-features">Features</a> •
@@ -39,10 +38,10 @@
 
 ### 💾 **Supported databases**
 
-- **PostgreSQL**: 12, 13, 14, 15, 16, 17 and 18
 - **MySQL**: 5.7, 8 and 9
 - **MariaDB**: 10, 11 and 12
 - **MongoDB**: 4.2+, 5, 6, 7 and 8
+- **PostgreSQL**: 12–18 — not recommended in standalone mode (client tools not bundled; app starts with a warning)
 
 ### 🔄 **Scheduled backups**
 
@@ -51,6 +50,8 @@
 - **Smart compression**: 4-8x space savings with balanced compression (~20% overhead)
 
 ### 🧪 **Restore verification** <a href="https://databasus.com/restore-verification">(docs)</a>
+
+> **Not available in standalone mode.** Restore verification spins up a temporary database container and requires Docker. It is supported in the upstream Docker-based deployment.
 
 Databasus performs a real restore to confirm backups are usable, not just intact on disk or checksum check.
 
@@ -108,23 +109,13 @@ It is also important for Databasus that you are able to decrypt and restore back
 ### 📦 **Backup types**
 
 - **Logical** — Native dump of the database in its engine-specific binary format. Compressed and streamed directly to storage with no intermediate files
-- **Physical** — File-level copy of the entire database cluster. Faster backup and restore for large datasets compared to logical dumps
-- **Incremental** — Physical base backup combined with continuous WAL segment archiving. Enables Point-in-time recovery (PITR) — restore to any second between backups. Designed for disaster recovery and near-zero data loss requirements
+- **Physical** — File-level copy of the entire database cluster. PostgreSQL only; not applicable to MySQL/MariaDB targets
 
 ### 🐳 **Self-hosted & secure**
 
-- **Docker-based**: Easy deployment and management
+- **Standalone `.exe`**: runs on Windows Server with no Docker, no Kubernetes, and no external services required
 - **Privacy-first**: All your data stays on your infrastructure
 - **Open source**: Apache 2.0 licensed, inspect every line of code
-
-### 📦 Installation <a href="https://databasus.com/installation">(docs)</a>
-
-You have four ways to install Databasus:
-
-- Automated script (recommended)
-- Simple Docker run
-- Docker Compose setup
-- Kubernetes with Helm
 
 <img src="assets/healthchecks.svg" alt="Databasus Dashboard" width="800"/>
 
@@ -132,102 +123,63 @@ You have four ways to install Databasus:
 
 ## 📦 Installation
 
-You have four ways to install Databasus: automated script (recommended), simple Docker run, or Docker Compose setup.
+Download `databasus-windows-x64.zip` from the [GitHub releases page](https://github.com/pierresh/databasus/releases) and extract it to a dedicated directory, for example `C:\databasus\`:
 
-### Option 1: Automated installation script (recommended, Linux only)
-
-The installation script will:
-
-- ✅ Install Docker with Docker Compose (if not already installed)
-- ✅ Set up Databasus
-- ✅ Configure automatic startup on system reboot
-
-```bash
-sudo apt-get install -y curl && \
-sudo curl -sSL https://raw.githubusercontent.com/databasus/databasus/refs/heads/main/install-databasus.sh \
-| sudo bash
+```
+C:\databasus\
+├── databasus.exe
+├── assets\tools\win-x64\
+│   ├── mysql\
+│   ├── mariadb\
+│   └── mongodb\
+└── ui\build\
 ```
 
-### Option 2: Simple Docker run
+MySQL and MariaDB backup targets are fully supported. MongoDB is also bundled. PostgreSQL backup targets are not recommended — client tools are not included and the app starts with a warning.
 
-The easiest way to run Databasus:
+### First run
 
-```bash
-docker run -d \
-  --name databasus \
-  -p 4005:4005 \
-  -v ./databasus-data:/databasus-data \
-  --restart unless-stopped \
-  databasus/databasus:latest
+Open PowerShell inside `C:\databasus\` and run:
+
+```powershell
+.\databasus.exe --standalone
 ```
 
-This single command will:
+The binary starts an embedded database, applies all migrations, and serves the web UI on port 4005. Access the dashboard at `http://localhost:4005`. No configuration file is required.
 
-- ✅ Start Databasus
-- ✅ Store all data in `./databasus-data` directory
-- ✅ Automatically restart on system reboot
+### Running as a Windows Service
 
-### Option 3: Docker Compose setup
+To have Databasus start automatically at boot, register it as a Windows service. Open PowerShell as Administrator:
 
-Create a `docker-compose.yml` file with the following configuration:
-
-```yaml
-services:
-  databasus:
-    container_name: databasus
-    image: databasus/databasus:latest
-    ports:
-      - "4005:4005"
-    volumes:
-      - ./databasus-data:/databasus-data
-    restart: unless-stopped
+```powershell
+sc.exe create "Databasus" `
+    binPath= "C:\databasus\databasus.exe --standalone" `
+    DisplayName= "Databasus Backup" `
+    start= auto
+sc.exe start "Databasus"
 ```
 
-Then run:
+To stop or uninstall the service:
 
-```bash
-docker compose up -d
+```powershell
+sc.exe stop "Databasus"
+sc.exe delete "Databasus"
 ```
 
-### Option 4: Kubernetes with Helm
+> [NSSM](https://nssm.cc) is a popular free alternative to `sc.exe` that adds service log capture, automatic restart policies, and an interactive configuration GUI.
 
-For Kubernetes deployments, install directly from the OCI registry.
+### Firewall
 
-**With ClusterIP + port-forward (development/testing):**
+To access the dashboard from other machines on the network, open port 4005:
 
-```bash
-helm install databasus oci://ghcr.io/databasus/charts/databasus \
-  -n databasus --create-namespace
+```powershell
+netsh advfirewall firewall add rule `
+    name="Databasus" protocol=TCP dir=in action=allow localport=4005
 ```
 
-```bash
-kubectl port-forward svc/databasus-service 4005:4005 -n databasus
-# Access at http://localhost:4005
-```
+### Data and encryption key
 
-**With LoadBalancer (cloud environments):**
-
-```bash
-helm install databasus oci://ghcr.io/databasus/charts/databasus \
-  -n databasus --create-namespace \
-  --set service.type=LoadBalancer
-```
-
-```bash
-kubectl get svc databasus-service -n databasus
-# Access at http://<EXTERNAL-IP>:4005
-```
-
-**With Ingress (domain-based access):**
-
-```bash
-helm install databasus oci://ghcr.io/databasus/charts/databasus \
-  -n databasus --create-namespace \
-  --set ingress.enabled=true \
-  --set ingress.hosts[0].host=backup.example.com
-```
-
-For more options (NodePort, TLS, HTTPRoute for Gateway API), see the [Helm chart README](deploy/helm/README.md).
+All runtime data — internal database, encryption key, and any locally-stored backups — is written to the same directory as `databasus.exe`. **Back up this directory regularly.** The encryption key in particular must be preserved: without it, encrypted backups stored on S3 or other remote storage cannot be decrypted, even if you reinstall Databasus.
 
 ---
 
@@ -242,19 +194,19 @@ For more options (NodePort, TLS, HTTPRoute for Gateway API), see the [Helm chart
 7. **Add notifications** (optional): Configure email, Telegram, Slack, or webhook notifications
 8. **Save and start**: Databasus will validate settings and begin the backup schedule
 
-### 🔑 Resetting password <a href="https://databasus.com/password">(docs)</a>
+### 🔑 Resetting password
 
-If you need to reset the password, you can use the built-in password reset command:
+If you need to reset the password, stop Databasus and run:
 
-```bash
-docker exec -it databasus ./main --new-password="YourNewSecurePassword123" --email="admin"
+```powershell
+.\databasus.exe --new-password="YourNewSecurePassword123" --email="admin@example.com"
 ```
 
-Replace `admin` with the actual email address of the user whose password you want to reset.
+Replace the email with the actual address of the user whose password you want to reset.
 
-### 💾 Backuping Databasus itself
+### 💾 Backing up Databasus itself
 
-After installation, it is also recommended to <a href="https://databasus.com/faq#backup-databasus">backup your Databasus itself</a> or, at least, to copy secret key used for encryption (30 seconds is needed). So you are able to restore from your encrypted backups if you lose access to the server with Databasus or it is corrupted.
+See [Data and encryption key](#data-and-encryption-key) in the Installation section.
 
 ---
 
@@ -266,11 +218,56 @@ For static analysis we combine several independent passes. CodeQL scans the full
 
 On the dependency side, Dependabot watches all of our dependencies against the GitHub Advisory Database and surfaces CVEs within minutes of publication. Updates run through a cooldown so newly-published versions get a chance to mature before we adopt them. This is a deliberate defence against compromised-package incidents like supply-chain attack. The Dependency Review Action blocks any PR that introduces a new HIGH or CRITICAL CVE outright.
 
-Container images are scanned with Trivy on every build. A separate Trivy pass on the Dockerfile catches misconfigurations before they make it into an image. All GitHub Actions are pinned to full commit SHAs rather than floating tags like `@v4` or `@main`, which have been an active attack vector in 2025. Workflows default to least-privilege permissions and only elevate per-job when genuinely needed.
+All GitHub Actions are pinned to full commit SHAs rather than floating tags like `@v4` or `@main`, which have been an active attack vector in 2025. Workflows default to least-privilege permissions and only elevate per-job when genuinely needed.
 
-Critical paths are covered by both unit and integration tests, run against real database containers for every supported engine and major version. Restore is the path that matters most for a backup tool, so we test it explicitly: every PR runs full backup-then-restore cycles against those same real containers, verifying that backups can actually be restored end-to-end, not just written successfully. The rest of the CI/CD pipeline runs lint, type-check, the full test suite, image smoke tests and multi-architecture builds on every PR. A release only ships if all of it passes.
+Critical paths are covered by both unit and integration tests. The CI/CD pipeline runs lint, type-check, and the full test suite on every PR. A release only ships if all of it passes.
 
-Found a vulnerability? Report it via the GitHub Security tab. See [SECURITY.md](https://github.com/databasus/databasus?tab=security-ov-file#readme). Security reports are the highest-priority work queue. For runtime application security (AES-256-GCM at rest, zero-trust storage, encrypted secrets, read-only DB user by default) see [Enterprise-grade security](#-enterprise-grade-security) in the Features section above.
+Found a vulnerability? Report it via the GitHub Security tab. See [SECURITY.md](https://github.com/pierresh/databasus?tab=security-ov-file#readme). Security reports are the highest-priority work queue. For runtime application security (AES-256-GCM at rest, zero-trust storage, encrypted secrets, read-only DB user by default) see [Enterprise-grade security](#-enterprise-grade-security) in the Features section above.
+
+---
+
+## 🔨 Building from source
+
+The CI release pipeline builds and packages `databasus-windows-x64.zip` automatically on every tagged release. If you need to build locally, here are the exact steps it runs.
+
+**Prerequisites:** Go 1.26.3+, Node.js 20+, pnpm, and the `swag` CLI for Swagger doc generation.
+
+```bash
+# Install swag
+go install github.com/swaggo/swag/cmd/swag@v1.16.4
+```
+
+**Build:**
+
+```bash
+# 1. Frontend
+cd frontend
+pnpm install --frozen-lockfile
+pnpm build
+
+# 2. Swagger docs (required for the cmd package to compile)
+cd ../backend
+swag init -d . -g cmd/main.go -o swagger
+
+# 3. Cross-compile for Windows amd64
+GOOS=windows GOARCH=amd64 go build \
+    -ldflags "-s -w" \
+    -o databasus.exe \
+    ./cmd
+```
+
+**Package:**
+
+```bash
+cd ..  # back to repo root from backend/
+mkdir -p dist/ui/build dist/assets/tools/win-x64
+cp backend/databasus.exe dist/
+cp -r assets/tools/win-x64/mysql   dist/assets/tools/win-x64/
+cp -r assets/tools/win-x64/mariadb dist/assets/tools/win-x64/
+cp -r assets/tools/win-x64/mongodb dist/assets/tools/win-x64/
+cp -r frontend/dist/.              dist/ui/build/
+cd dist && zip -r ../databasus-windows-x64.zip .
+```
 
 ---
 
@@ -280,19 +277,11 @@ This project is licensed under the Apache 2.0 License - see the [LICENSE](LICENS
 
 ## 🤝 Contributing
 
-Contributions are welcome! Read the <a href="https://databasus.com/contribute">contributing guide</a> for more details, priorities and rules. If you want to contribute but don't know where to start, message me on Telegram [@rostislav_dugin](https://t.me/rostislav_dugin)
-
-Also you can join our large community of developers, DBAs and DevOps engineers on Telegram [@databasus_community](https://t.me/databasus_community).
+Contributions are welcome! Open an issue or pull request on [GitHub](https://github.com/pierresh/databasus). For the upstream project's broader contributing guide see [databasus.com/contribute](https://databasus.com/contribute).
 
 ## FAQ
 
 ### AI disclaimer
-
-There have been questions about AI usage in project development in issues and discussions. As the project focuses on security, reliability and production usage, it's important to explain how AI is used in the development process.
-
-First of all, we are proud to say that Databasus has been accepted into both [Claude for Open Source](https://claude.com/contact-sales/claude-for-oss) by Anthropic and [Codex for Open Source](https://developers.openai.com/codex/community/codex-for-oss/) by OpenAI in March 2026. For us it is one more signal that the project was recognized as important open-source software and was as critical infrastructure worth supporting independently by two of the world's leading AI companies. Read more at [databasus.com/faq](https://databasus.com/faq#oss-programs).
-
-Despite of this, we have the following rules how AI is used in the development process:
 
 AI is used as a helper for:
 
@@ -300,7 +289,6 @@ AI is used as a helper for:
 - cleaning up and improving documentation, comments and code
 - assistance during development
 - double-checking PRs and commits after human review
-- additional security analysis of PRs via Codex Security
 
 AI is not used for:
 
@@ -309,24 +297,4 @@ AI is not used for:
 - code without line-by-line verification by a human
 - code without tests
 
-So AI is just an assistant and a tool for developers to increase productivity and ensure code quality. The work is done by developers.
-
-Moreover, it's important to note that we do not differentiate between bad human code and AI vibe code. There are strict requirements for any code to be merged to keep the codebase maintainable.
-
-Even if code is written manually by a human, it's not guaranteed to be merged. Vibe code is not allowed at all and all such PRs are rejected by default (see [contributing guide](https://databasus.com/contribute)).
-
-The engineering safeguards behind these rules (CI, static analysis, dependency scanning, test coverage and vulnerability response) are documented in [Security & reliability engineering](#️-security--reliability-engineering) above.
-
-### You have a cloud version — are you truly open source?
-
-Yes. Every feature available in Databasus Cloud is equally available in the self-hosted version with no restrictions, no feature gates and no usage limits. The entire codebase is Apache 2.0 licensed and always will be.
-
-Databasus is not "open core". We do not withhold features behind a paid tier and then call the limited remainder "open source," as projects like GitLab or Sentry do. We believe open source means the complete product is open, not just a marketing label on a stripped-down edition.
-
-Databasus Cloud runs the exact same code as the self-hosted version. The only difference is that we take care of infrastructure, availability, backups, reservations, monitoring and updates for you — so you don't have to. If you are using cloud, you can always move your databases from cloud to self-hosted if you wish.
-
-Moreover, we have a DBA-as-a-service offering, [Databasus Labs](https://databasus.com/labs), to fund Databasus development and help companies with their database backup needs.
-
-Any long-running OSS project needs to be funded. Revenue from Cloud and Databasus Labs funds full-time development of the project. Most large open-source projects rely on corporate backing or sponsorship to survive (as well as TailwindCSS and pgBackRest, for example). 
-
-To address this, Databasus sustains itself so it can grow and improve independently, without being tied to any enterprise or sponsor. Our vision is to keep Databasus fully open-source forever, with a promise to never close it off through licensing or withheld code. So any DevOps or DBA company can provide services on top of Databasus as well.
+AI is an assistant to increase productivity and ensure code quality. All work is verified line-by-line by a human before merging.

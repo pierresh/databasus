@@ -3,6 +3,22 @@
 This document contains project-wide coding standards and best practices for Databasus.
 This is NOT a strict set of rules — it is a set of recommendations to help write better, more consistent code.
 
+---
+
+## About this fork
+
+This repository is a fork of [databasus/databasus](https://github.com/databasus/databasus), adapted for **Windows Server deployment as a standalone `.exe`**.
+
+Key differences from upstream:
+- **Target platform**: Windows Server — no Docker, no Kubernetes
+- **Primary backup targets**: MySQL, MariaDB, and MongoDB (all three are bundled in the standalone package; PostgreSQL backup targets are not recommended — client tools are not bundled)
+- **Deployment**: single `databasus.exe` launched with `--standalone`; embedded PostgreSQL handles internal metadata; no external services required
+- **Valkey/Redis removed**: replaced with in-process pub/sub and in-memory cache
+
+When a decision conflicts between upstream behaviour and the Windows-standalone deployment model, favour the standalone model.
+
+---
+
 Per-folder rules live next to the code they govern:
 
 - [`backend/CLAUDE.md`](backend/CLAUDE.md) — Go + Gin + GORM + PostgreSQL backend (controllers, migrations, CRUD, DI, testing, logging)
