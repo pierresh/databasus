@@ -138,8 +138,7 @@ Download `databasus-windows-x64.zip` and extract it to a dedicated directory, fo
 C:\databasus\
 ├── databasus.exe
 ├── install-service.bat
-├── install-service.ps1
-└── update.ps1
+└── install-service.ps1
 ```
 
 That's the entire installation — no Docker, no extra tools, no configuration file. The UI and all database client tools (MySQL, MariaDB, MongoDB) are embedded inside `databasus.exe` and extracted automatically on first launch.
@@ -182,11 +181,14 @@ To uninstall the service:
 
 ### Updating
 
-1. Download the new `databasus-windows-x64.zip` and extract `databasus.exe` from it
-2. Rename the extracted file to `databasus-new.exe` and place it alongside the existing `databasus.exe`
-3. Run `update.ps1` as Administrator — it stops the service, swaps the binary, and restarts
+The service registration and `databasus-data\` folder are untouched during an update — only the exe is replaced. Windows locks executables while they are running, so the service must be stopped first:
 
-The service registration, recovery settings, and all data in `databasus-data\` are untouched during an update.
+```powershell
+# Run as Administrator
+Stop-Service Databasus
+# Replace databasus.exe with the new version here
+Start-Service Databasus
+```
 
 ### Firewall
 
@@ -278,7 +280,6 @@ This single command builds the React frontend, embeds it and all client tools (M
 databasus.exe
 install-service.bat
 install-service.ps1
-update.ps1
 ```
 
 ---
