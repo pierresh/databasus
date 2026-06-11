@@ -93,7 +93,8 @@ var ensureEnvLoaded = sync.OnceFunc(func() {
 
 		parent := filepath.Dir(backendRoot)
 		if parent == backendRoot {
-			break
+			// No go.mod found — running as a deployed binary, no .env needed.
+			return
 		}
 
 		backendRoot = parent

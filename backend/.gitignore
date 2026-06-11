@@ -1,4 +1,5 @@
 main
+databasus.exe
 .env
 pgdata_test/
 main.exe
@@ -9,6 +10,7 @@ swagger/swagger.json
 swagger/swagger.yaml
 databasus-backend.exe
 ui/build/*
+!ui/build/.gitkeep
 pgdata-for-restore/
 temp/
 cmd.exe

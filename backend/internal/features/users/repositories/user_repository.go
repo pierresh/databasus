@@ -3,6 +3,7 @@ package users_repositories
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -98,8 +99,8 @@ func (r *UserRepository) GetUsers(
 		countQuery = countQuery.Where("created_at < ?", *beforeCreatedAt)
 	}
 	if query != "" {
-		searchPattern := "%" + query + "%"
-		countQuery = countQuery.Where("email ILIKE ? OR name ILIKE ?", searchPattern, searchPattern)
+		searchPattern := "%" + strings.ToLower(query) + "%"
+		countQuery = countQuery.Where("LOWER(email) LIKE ? OR LOWER(name) LIKE ?", searchPattern, searchPattern)
 	}
 
 	if err := countQuery.Count(&total).Error; err != nil {
@@ -115,8 +116,8 @@ func (r *UserRepository) GetUsers(
 		dataQuery = dataQuery.Where("created_at < ?", *beforeCreatedAt)
 	}
 	if query != "" {
-		searchPattern := "%" + query + "%"
-		dataQuery = dataQuery.Where("email ILIKE ? OR name ILIKE ?", searchPattern, searchPattern)
+		searchPattern := "%" + strings.ToLower(query) + "%"
+		dataQuery = dataQuery.Where("LOWER(email) LIKE ? OR LOWER(name) LIKE ?", searchPattern, searchPattern)
 	}
 
 	if err := dataQuery.Find(&users).Error; err != nil {

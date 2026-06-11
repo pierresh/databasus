@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"os"
@@ -11,6 +12,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime/debug"
+	"strings"
 	"syscall"
 	"time"
 
@@ -55,6 +57,7 @@ import (
 	files_utils "databasus-backend/internal/util/files"
 	"databasus-backend/internal/util/logger"
 	_ "databasus-backend/swagger" // swagger docs
+	"databasus-backend/ui"
 )
 
 // CLI flags — registered at package level so all parts of main can reference
@@ -65,7 +68,15 @@ var (
 	// --standalone is read early via os.Args (config.IsStandaloneMode) before
 	// flag.Parse() runs. It is registered here so flag.Parse() does not reject it.
 	_ = flag.Bool("standalone", false, "Run without Docker using embedded PostgreSQL")
+
+	flagInstallService   = flag.Bool("install-service", false, "Install databasus as a Windows Service that starts automatically (requires administrator)")
+	flagUninstallService = flag.Bool("uninstall-service", false, "Uninstall the Databasus Windows Service (requires administrator)")
 )
+
+// serviceShutdown is closed by the Windows Service handler when the Service
+// Control Manager sends Stop or Shutdown. Interactive mode uses OS signals
+// instead; this channel is never closed in that path.
+var serviceShutdown = make(chan struct{})
 
 // @title Databasus Backend API
 // @version 1.0
@@ -78,8 +89,50 @@ var (
 func main() {
 	flag.Parse()
 
-	log := logger.GetLogger()
+	if *flagInstallService {
+		if err := installWindowsService(); err != nil {
+			fmt.Fprintln(os.Stderr, "Error:", err)
+			os.Exit(1)
+		}
+		return
+	}
 
+	if *flagUninstallService {
+		if err := uninstallWindowsService(); err != nil {
+			fmt.Fprintln(os.Stderr, "Error:", err)
+			os.Exit(1)
+		}
+		return
+	}
+
+	// When launched by the Windows Service Control Manager, redirect all log
+	// output to a file (no terminal is attached in service mode) and enter
+	// the service lifecycle — the SCM will call Execute() which runs runApp().
+	if isRunningAsWindowsService() {
+		exe, _ := os.Executable()
+		logDir := filepath.Join(filepath.Dir(exe), "databasus-data")
+		_ = os.MkdirAll(logDir, 0o755)
+		if f, err := os.OpenFile(
+			filepath.Join(logDir, "databasus.log"),
+			os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644,
+		); err == nil {
+			os.Stdout = f
+			os.Stderr = f
+		}
+
+		log := logger.GetLogger()
+		if err := runAsWindowsService(log); err != nil {
+			log.Error("Windows Service error", "error", err)
+			os.Exit(1)
+		}
+		return
+	}
+
+	log := logger.GetLogger()
+	runApp(log)
+}
+
+func runApp(log *slog.Logger) {
 	if config.IsStandaloneMode() {
 		stopEmbeddedPG, err := initStandaloneMode(log)
 		if err != nil {
@@ -214,7 +267,10 @@ func startServerWithGracefulShutdown(log *slog.Logger, app *gin.Engine) {
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
-	<-quit
+	select {
+	case <-quit:
+	case <-serviceShutdown:
+	}
 	log.Info("Shutdown signal received")
 
 	// Gracefully shutdown VictoriaLogs writer
@@ -330,7 +386,10 @@ func runBackgroundTasks(log *slog.Logger) {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 	go func() {
-		<-quit
+		select {
+		case <-quit:
+		case <-serviceShutdown:
+		}
 		log.Info("Shutdown signal received, cancelling all background tasks")
 		cancel()
 	}()
@@ -521,24 +580,63 @@ func ginRecoveryWithLogger(log *slog.Logger) gin.HandlerFunc {
 }
 
 func mountFrontend(ginApp *gin.Engine) {
-	staticDir := "./ui/build"
-
-	// In standalone mode the binary may not run from the repo root, so resolve
-	// the UI directory relative to the executable instead of the working dir.
 	if config.IsStandaloneMode() {
-		if exe, err := os.Executable(); err == nil {
-			staticDir = filepath.Join(filepath.Dir(exe), "ui", "build")
+		// In standalone mode the frontend is embedded in the binary — no
+		// external ui/build directory required.
+		sub, err := fs.Sub(ui.Files, "build")
+		if err != nil {
+			panic("embedded ui/build not found: " + err.Error())
 		}
+
+		indexHTML, err := fs.ReadFile(sub, "index.html")
+		if err != nil {
+			panic("embedded index.html not found: " + err.Error())
+		}
+
+		// Serve an empty runtime-config.js so the browser doesn't try to
+		// parse the SPA index.html fallback as JavaScript.
+		ginApp.GET("/runtime-config.js", func(c *gin.Context) {
+			c.Data(http.StatusOK, "application/javascript; charset=utf-8", []byte(""))
+		})
+
+		httpFS := http.FS(sub)
+		ginApp.NoRoute(func(c *gin.Context) {
+			// io/fs requires relative paths (no leading slash).
+			filePath := strings.TrimPrefix(c.Request.URL.Path, "/")
+
+			if filePath != "" && filePath != "index.html" {
+				if f, err := sub.Open(filePath); err == nil {
+					info, statErr := f.Stat()
+					_ = f.Close()
+					if statErr == nil && !info.IsDir() {
+						c.FileFromFS(c.Request.URL.Path, httpFS)
+						return
+					}
+				}
+				// Missing file with an extension is a broken asset request,
+				// not a SPA route — return 404 so the browser doesn't treat
+				// the index.html content as JS/CSS/etc.
+				if filepath.Ext(filePath) != "" {
+					c.Status(http.StatusNotFound)
+					return
+				}
+			}
+			// No extension (or bare /) = SPA route — serve index.html directly.
+			// We use c.Data instead of c.FileFromFS to avoid Go's http.FileServer
+			// /index.html → / redirect that would cause an infinite redirect loop.
+			c.Data(http.StatusOK, "text/html; charset=utf-8", indexHTML)
+		})
+		return
 	}
 
+	// Non-standalone: serve from the filesystem (dev / Docker deployments).
+	staticDir := "./ui/build"
 	ginApp.NoRoute(func(c *gin.Context) {
 		path := filepath.Join(staticDir, c.Request.URL.Path)
-
 		if info, err := os.Stat(path); err == nil && !info.IsDir() {
 			c.File(path)
 			return
 		}
-
 		c.File(filepath.Join(staticDir, "index.html"))
 	})
 }

@@ -33,7 +33,7 @@ const createInitialDatabase = (workspaceId: string): Database =>
     workspaceId,
     storePeriod: Period.MONTH,
 
-    type: DatabaseType.POSTGRES,
+    type: DatabaseType.MARIADB,
 
     storage: {} as unknown as Storage,
 

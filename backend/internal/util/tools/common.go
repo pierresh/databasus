@@ -9,13 +9,36 @@ import (
 	"runtime"
 	"slices"
 	"strings"
+	"sync"
 )
 
 // isStandaloneMode mirrors config.IsStandaloneMode() to avoid a circular
-// import between the tools and config packages.
-func isStandaloneMode() bool {
-	return slices.Contains(os.Args, "--standalone")
-}
+// import between the tools and config packages. Keep the detection logic in
+// sync with config.IsStandaloneMode().
+var isStandaloneMode = sync.OnceValue(func() bool {
+	if slices.Contains(os.Args, "--standalone") {
+		return true
+	}
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		return false
+	}
+
+	dir := cwd
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return false
+		}
+
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return true
+		}
+
+		dir = parent
+	}
+})
 
 // withExeOnWindows appends ".exe" when running on Windows.
 func withExeOnWindows(name string) string {
@@ -43,6 +66,9 @@ type ToolCheckResult struct {
 // single not-found error so callers can treat it differently for fatal vs
 // non-fatal bundles.
 func checkBinDir(binDir string, requiredCommands []string) []error {
+	if binDir == "" {
+		return []error{fmt.Errorf("client tools directory not found (assets/tools not bundled)")}
+	}
 	if _, err := os.Stat(binDir); os.IsNotExist(err) {
 		return []error{fmt.Errorf("client tools bin directory not found: %s", binDir)}
 	}

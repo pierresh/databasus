@@ -2,8 +2,11 @@ package storage
 
 import (
 	"os"
+	"reflect"
 	"sync"
 
+	gormlite "github.com/glebarez/sqlite"
+	"github.com/google/uuid"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	gormLogger "gorm.io/gorm/logger"
@@ -47,9 +50,24 @@ func LoadMainDb() {
 
 	log.Info("connecting to database...")
 
-	database, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
+	var (
+		database *gorm.DB
+		err      error
+	)
+
+	gormCfg := &gorm.Config{
 		Logger: gormLogger.Default.LogMode(gormLogger.Silent),
-	})
+	}
+
+	if config.IsStandaloneMode() {
+		database, err = gorm.Open(gormlite.Open(dsn), gormCfg)
+		if err == nil {
+			registerUUIDCallback(database)
+		}
+	} else {
+		database, err = gorm.Open(postgres.Open(dsn), gormCfg)
+	}
+
 	if err != nil {
 		log.Error("error connecting to database", "error", err)
 		os.Exit(1)
@@ -67,4 +85,27 @@ func LoadMainDb() {
 	db = database
 
 	log.Info("main database connected successfully")
+}
+
+var uuidType = reflect.TypeFor[uuid.UUID]()
+
+// registerUUIDCallback adds a BeforeCreate hook that auto-generates a UUID
+// for any primary-key field of type uuid.UUID that is still the zero value.
+// This replaces PostgreSQL's gen_random_uuid() default, which SQLite lacks.
+func registerUUIDCallback(db *gorm.DB) {
+	_ = db.Callback().Create().Before("gorm:create").Register("uuid:auto_generate", func(db *gorm.DB) {
+		if db.Statement == nil || db.Statement.Schema == nil {
+			return
+		}
+
+		for _, field := range db.Statement.Schema.PrimaryFields {
+			if field.FieldType != uuidType {
+				continue
+			}
+
+			if _, isZero := field.ValueOf(db.Statement.Context, db.Statement.ReflectValue); isZero {
+				_ = field.Set(db.Statement.Context, db.Statement.ReflectValue, uuid.New())
+			}
+		}
+	})
 }

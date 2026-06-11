@@ -141,11 +141,33 @@ func GetEnv() *EnvVariables {
 }
 
 // IsStandaloneMode returns true when --standalone was passed on the command
-// line.  It is safe to call before GetEnv() is fully initialised because it
-// only inspects os.Args.
-func IsStandaloneMode() bool {
-	return slices.Contains(os.Args, "--standalone")
-}
+// line, or when no go.mod is found anywhere up the directory tree (i.e. the
+// binary is running as a deployed artifact, not from a development checkout).
+// It is safe to call before GetEnv() is fully initialised.
+var IsStandaloneMode = sync.OnceValue(func() bool {
+	if slices.Contains(os.Args, "--standalone") {
+		return true
+	}
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		return false
+	}
+
+	dir := cwd
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return false
+		}
+
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return true
+		}
+
+		dir = parent
+	}
+})
 
 func loadEnvVariables() {
 	cwd, err := os.Getwd()

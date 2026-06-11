@@ -137,45 +137,56 @@ Download `databasus-windows-x64.zip` and extract it to a dedicated directory, fo
 ```
 C:\databasus\
 ├── databasus.exe
-├── assets\tools\win-x64\
-│   ├── mysql\
-│   ├── mariadb\
-│   └── mongodb\
-└── ui\build\
+├── install-service.bat
+├── install-service.ps1
+└── update.ps1
 ```
+
+That's the entire installation — no Docker, no extra tools, no configuration file. The UI and all database client tools (MySQL, MariaDB, MongoDB) are embedded inside `databasus.exe` and extracted automatically on first launch.
 
 MySQL and MariaDB backup targets are fully supported. MongoDB is also bundled. PostgreSQL backup targets are not recommended — client tools are not included and the app starts with a warning.
 
-### First run
+### First run (manual)
 
-Open PowerShell inside `C:\databasus\` and run:
+To run Databasus manually (e.g. for testing), open PowerShell inside `C:\databasus\` and run:
 
 ```powershell
 .\databasus.exe --standalone
 ```
 
-The binary starts an embedded database, applies all migrations, and serves the web UI on port 4005. Access the dashboard at `http://localhost:4005`. No configuration file is required.
+The binary extracts client tools, initialises an embedded database, applies all migrations, and serves the web UI on **port 4005**. Access the dashboard at `http://localhost:4005`. No configuration file is required.
 
-### Running as a Windows Service
+### Installing as a Windows Service (recommended)
 
-To have Databasus start automatically at boot, register it as a Windows service. Open PowerShell as Administrator:
+To have Databasus start automatically at every Windows boot, install it as a service. Right-click `install-service.bat` and choose **Run as administrator**.
 
-```powershell
-sc.exe create "Databasus" `
-    binPath= "C:\databasus\databasus.exe --standalone" `
-    DisplayName= "Databasus Backup" `
-    start= auto
-sc.exe start "Databasus"
-```
+The script will:
+1. Register Databasus as a Windows Service set to start automatically
+2. Configure automatic restart on crash (restarts after 5 seconds)
+3. Start the service immediately
+4. Display the service status and log file location
 
-To stop or uninstall the service:
+To manage the service afterwards (run in PowerShell as Administrator):
 
 ```powershell
-sc.exe stop "Databasus"
-sc.exe delete "Databasus"
+Start-Service Databasus   # start
+Stop-Service  Databasus   # stop
+Get-Service   Databasus   # status
 ```
 
-> [NSSM](https://nssm.cc) is a popular free alternative to `sc.exe` that adds service log capture, automatic restart policies, and an interactive configuration GUI.
+To uninstall the service:
+
+```powershell
+.\databasus.exe --uninstall-service
+```
+
+### Updating
+
+1. Download the new `databasus-windows-x64.zip` and extract `databasus.exe` from it
+2. Rename the extracted file to `databasus-new.exe` and place it alongside the existing `databasus.exe`
+3. Run `update.ps1` as Administrator — it stops the service, swaps the binary, and restarts
+
+The service registration, recovery settings, and all data in `databasus-data\` are untouched during an update.
 
 ### Firewall
 
@@ -188,7 +199,9 @@ netsh advfirewall firewall add rule `
 
 ### Data and encryption key
 
-All runtime data — internal database, encryption key, and any locally-stored backups — is written to the same directory as `databasus.exe`. **Back up this directory regularly.** The encryption key in particular must be preserved: without it, encrypted backups stored on S3 or other remote storage cannot be decrypted, even if you reinstall Databasus.
+All runtime data — internal database, encryption key, client tools, and any locally-stored backups — is written to `databasus-data\` in the same directory as `databasus.exe`. **Back up this directory regularly.** The encryption key in particular must be preserved: without it, encrypted backups stored on S3 or other remote storage cannot be decrypted, even if you reinstall Databasus.
+
+Service logs are written to `databasus-data\databasus.log`.
 
 ---
 
@@ -237,45 +250,35 @@ Found a vulnerability? Report it via the GitHub Security tab. See [SECURITY.md](
 
 ## 🔨 Building from source
 
-The CI release pipeline builds and packages `databasus-windows-x64.zip` automatically on every tagged release. If you need to build locally, here are the exact steps it runs.
+The CI release pipeline builds and packages `databasus-windows-x64.zip` automatically on every tagged release. If you need to build locally:
 
 **Prerequisites:** Go 1.26.3+, Node.js 20+, pnpm, and the `swag` CLI for Swagger doc generation.
 
 ```bash
 # Install swag
 go install github.com/swaggo/swag/cmd/swag@v1.16.4
+
+# Install frontend dependencies (once)
+cd frontend && pnpm install --frozen-lockfile && cd ..
+
+# Generate Swagger docs (required for the cmd package to compile)
+cd backend && swag init -d . -g cmd/main.go -o swagger && cd ..
 ```
 
-**Build:**
+**Build and package:**
 
 ```bash
-# 1. Frontend
-cd frontend
-pnpm install --frozen-lockfile
-pnpm build
-
-# 2. Swagger docs (required for the cmd package to compile)
-cd ../backend
-swag init -d . -g cmd/main.go -o swagger
-
-# 3. Cross-compile for Windows amd64
-GOOS=windows GOARCH=amd64 go build \
-    -ldflags "-s -w" \
-    -o databasus.exe \
-    ./cmd
+cd backend
+make build-windows
 ```
 
-**Package:**
+This single command builds the React frontend, embeds it and all client tools (MySQL, MariaDB, MongoDB) into the binary, cross-compiles for Windows amd64, and produces `databasus-windows-x64.zip` at the repo root containing:
 
-```bash
-cd ..  # back to repo root from backend/
-mkdir -p dist/ui/build dist/assets/tools/win-x64
-cp backend/databasus.exe dist/
-cp -r assets/tools/win-x64/mysql   dist/assets/tools/win-x64/
-cp -r assets/tools/win-x64/mariadb dist/assets/tools/win-x64/
-cp -r assets/tools/win-x64/mongodb dist/assets/tools/win-x64/
-cp -r frontend/dist/.              dist/ui/build/
-cd dist && zip -r ../databasus-windows-x64.zip .
+```
+databasus.exe
+install-service.bat
+install-service.ps1
+update.ps1
 ```
 
 ---

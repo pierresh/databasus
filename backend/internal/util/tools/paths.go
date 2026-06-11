@@ -47,7 +47,7 @@ var AssetsToolsDir = sync.OnceValue(func() string {
 	// Dev / Docker: walk up from cwd looking for the directory.
 	cwd, err := os.Getwd()
 	if err != nil {
-		panic(fmt.Sprintf("could not get cwd: %v", err))
+		return ""
 	}
 
 	candidate := cwd
@@ -64,5 +64,8 @@ var AssetsToolsDir = sync.OnceValue(func() string {
 		candidate = parent
 	}
 
-	panic(fmt.Sprintf("could not locate assets/tools/%s starting from executable dir or %s", key, cwd))
+	// Not found — return empty string so callers report a check failure via
+	// checkBinDir rather than crashing. IsFatal controls whether a missing
+	// bundle causes os.Exit (Postgres) or just a warning (MySQL/MariaDB/Mongo).
+	return ""
 })

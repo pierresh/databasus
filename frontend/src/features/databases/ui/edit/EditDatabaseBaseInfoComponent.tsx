@@ -26,10 +26,8 @@ interface Props {
 }
 
 const databaseTypeOptions = [
-  { value: DatabaseType.POSTGRES, label: 'PostgreSQL' },
-  { value: DatabaseType.MYSQL, label: 'MySQL' },
   { value: DatabaseType.MARIADB, label: 'MariaDB' },
-  { value: DatabaseType.MONGODB, label: 'MongoDB' },
+  { value: DatabaseType.MYSQL, label: 'MySQL' },
 ];
 
 export const EditDatabaseBaseInfoComponent = ({
