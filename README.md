@@ -296,6 +296,14 @@ Contributions are welcome! Open an issue or pull request on [GitHub](https://git
 
 ### AI disclaimer
 
+#### Windows standalone port (this fork)
+
+This port to a self-contained Windows `.exe` was written and reviewed entirely by AI (Claude Code).
+The maintainer directed the work and made architectural decisions, but did not perform
+line-by-line code review.
+
+#### Original project (databasus/databasus)
+
 AI is used as a helper for:
 
 - verification of code quality and searching for vulnerabilities

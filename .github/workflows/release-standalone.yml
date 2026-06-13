@@ -53,23 +53,27 @@ jobs:
           cd backend
           go mod download
 
+      - name: Prepare embedded assets
+        run: |
+          cd backend
+          rm -rf ui/build
+          cp -r ../frontend/dist ui/build
+          cp -r ../assets/tools/win-x64/. embedded_tools/win-x64/
+
       - name: Cross-compile Windows amd64 binary
         run: |
           cd backend
           GOOS=windows GOARCH=amd64 go build \
             -ldflags "-s -w" \
-            -o databasus.exe \
+            -o ../databasus.exe \
             ./cmd
+          rm -rf embedded_tools/win-x64
+          mkdir -p embedded_tools/win-x64
+          touch embedded_tools/win-x64/.gitkeep
 
       - name: Package standalone distribution
         run: |
-          mkdir -p dist/ui/build dist/assets/tools/win-x64
-          cp backend/databasus.exe dist/
-          cp -r assets/tools/win-x64/mysql   dist/assets/tools/win-x64/
-          cp -r assets/tools/win-x64/mariadb dist/assets/tools/win-x64/
-          cp -r assets/tools/win-x64/mongodb dist/assets/tools/win-x64/
-          cp -r frontend/dist/. dist/ui/build/
-          cd dist && zip -r ../databasus-windows-x64.zip .
+          zip databasus-windows-x64.zip databasus.exe install-service.bat install-service.ps1
 
       - name: Create GitHub Release
         env:
