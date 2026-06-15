@@ -1211,7 +1211,7 @@ jobs:
 
       - name: Package standalone distribution
         run: |
-          zip databasus-windows-x64.zip databasus.exe install-service.bat install-service.ps1
+          zip databasus.zip databasus.exe install-service.bat install-service.ps1
 
       - name: Upload to GitHub Release
         env:
@@ -1219,6 +1219,6 @@ jobs:
         run: |
           gh release upload \
             "v${{ needs.determine-version.outputs.new_version }}" \
-            databasus-windows-x64.zip \
+            databasus.zip \
             --repo "${{ github.repository }}" \
             --clobber

@@ -73,14 +73,14 @@ jobs:
 
       - name: Package standalone distribution
         run: |
-          zip databasus-windows-x64.zip databasus.exe install-service.bat install-service.ps1
+          zip databasus.zip databasus.exe install-service.bat install-service.ps1
 
       - name: Create GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release create "${{ github.ref_name }}" \
-            databasus-windows-x64.zip \
+            databasus.zip \
             --repo "${{ github.repository }}" \
             --title "Release ${{ github.ref_name }}" \
             --generate-notes

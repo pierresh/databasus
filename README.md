@@ -130,9 +130,9 @@ git tag windows-v1.0.0
 git push origin windows-v1.0.0
 ```
 
-The CI builds `databasus-windows-x64.zip` and attaches it to the release. If no release is available yet, follow the [Building from source](#-building-from-source) section below.
+The CI builds `databasus.zip` and attaches it to the release. If no release is available yet, follow the [Building from source](#-building-from-source) section below.
 
-Download `databasus-windows-x64.zip` and extract it to a dedicated directory, for example `C:\databasus\`:
+Download `databasus.zip` and extract it to a dedicated directory, for example `C:\databasus\`:
 
 ```
 C:\databasus\
@@ -252,7 +252,7 @@ Found a vulnerability? Report it via the GitHub Security tab. See [SECURITY.md](
 
 ## 🔨 Building from source
 
-The CI release pipeline builds and packages `databasus-windows-x64.zip` automatically on every tagged release. If you need to build locally:
+The CI release pipeline builds and packages `databasus.zip` automatically on every tagged release. If you need to build locally:
 
 **Prerequisites:** Go 1.26.3+, Node.js 20+, pnpm, and the `swag` CLI for Swagger doc generation.
 
@@ -274,7 +274,7 @@ cd backend
 make build-windows
 ```
 
-This single command builds the React frontend, embeds it and all client tools (MySQL, MariaDB, MongoDB) into the binary, cross-compiles for Windows amd64, and produces `databasus-windows-x64.zip` at the repo root containing:
+This single command builds the React frontend, embeds it and all client tools (MySQL, MariaDB, MongoDB) into the binary, cross-compiles for Windows amd64, and produces `databasus.zip` at the repo root containing:
 
 ```
 databasus.exe

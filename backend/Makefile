@@ -12,8 +12,8 @@ build-windows:
 	cp -r ../assets/tools/win-x64/. embedded_tools/win-x64/
 	GOOS=windows GOARCH=amd64 go build -o ../databasus.exe ./cmd/
 	rm -rf embedded_tools/win-x64 && mkdir -p embedded_tools/win-x64 && touch embedded_tools/win-x64/.gitkeep
-	cd .. && rm -f databasus-windows-x64.zip && zip databasus-windows-x64.zip databasus.exe install-service.bat install-service.ps1
-	@echo "Done: ../databasus-windows-x64.zip"
+	cd .. && rm -f databasus.zip && zip databasus.zip databasus.exe install-service.bat install-service.ps1
+	@echo "Done: ../databasus.zip"
 
 # cleanup_test_db resets the metadata DB AND each test PG container
 # (drops leftover roles/databases and recreates testdb) so containers
