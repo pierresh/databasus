@@ -161,10 +161,15 @@ export function EditNotifierComponent({
             id: undefined as unknown as string,
             name: '',
             workspaceId,
-            notifierType: NotifierType.TELEGRAM,
-            telegramNotifier: {
-              botToken: '',
-              targetChatId: '',
+            notifierType: NotifierType.EMAIL,
+            emailNotifier: {
+              targetEmail: '',
+              smtpHost: '',
+              smtpPort: 25,
+              smtpUser: '',
+              smtpPassword: '',
+              from: '',
+              isInsecureSkipVerify: false,
             },
           },
     );

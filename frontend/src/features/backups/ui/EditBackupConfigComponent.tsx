@@ -175,23 +175,21 @@ export const EditBackupConfigComponent = ({
             isBackupsEnabled: true,
             backupInterval: {
               type: IntervalType.DAILY,
-              timeOfDay: '00:00',
+              timeOfDay: '03:00',
             },
             storage: undefined,
-            retentionPolicyType: IS_CLOUD
-              ? RetentionPolicyType.GFS
-              : RetentionPolicyType.TimePeriod,
+            retentionPolicyType: RetentionPolicyType.GFS,
             retentionTimePeriod: Period.THREE_MONTH,
             retentionCount: 100,
             retentionGfsHours: 24,
-            retentionGfsDays: 7,
-            retentionGfsWeeks: 4,
-            retentionGfsMonths: 12,
-            retentionGfsYears: 3,
+            retentionGfsDays: 31,
+            retentionGfsWeeks: 52,
+            retentionGfsMonths: 48,
+            retentionGfsYears: 10,
             sendNotificationsOn: [BackupNotificationType.BackupFailed],
             isRetryIfFailed: true,
             maxFailedTriesCount: 3,
-            encryption: BackupEncryption.ENCRYPTED,
+            encryption: BackupEncryption.NONE,
           });
         }
 
@@ -518,10 +516,10 @@ export const EditBackupConfigComponent = ({
 
               if (type === RetentionPolicyType.GFS) {
                 updates.retentionGfsHours = 24;
-                updates.retentionGfsDays = 7;
-                updates.retentionGfsWeeks = 4;
-                updates.retentionGfsMonths = 12;
-                updates.retentionGfsYears = 3;
+                updates.retentionGfsDays = 31;
+                updates.retentionGfsWeeks = 52;
+                updates.retentionGfsMonths = 48;
+                updates.retentionGfsYears = 10;
               } else if (type === RetentionPolicyType.Count) {
                 updates.retentionCount = 100;
               }
