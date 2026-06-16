@@ -9,9 +9,9 @@
   [![MariaDB](https://img.shields.io/badge/MariaDB-003545?logo=mariadb&logoColor=white)](https://mariadb.org/)
   <br />
   [![Apache 2.0 License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-  [![Platform](https://img.shields.io/badge/platform-windows--server-0078d4?logo=windows)](https://github.com/pierresh/databasus)
-  [![Self Hosted](https://img.shields.io/badge/self--hosted-yes-brightgreen)](https://github.com/pierresh/databasus)
-  [![Open Source](https://img.shields.io/badge/open%20source-❤️-red)](https://github.com/pierresh/databasus)
+  [![Platform](https://img.shields.io/badge/platform-windows--server-0078d4?logo=windows)](https://github.com/pierresh/databasus-windows)
+  [![Self Hosted](https://img.shields.io/badge/self--hosted-yes-brightgreen)](https://github.com/pierresh/databasus-windows)
+  [![Open Source](https://img.shields.io/badge/open%20source-❤️-red)](https://github.com/pierresh/databasus-windows)
   [![Fork of](https://img.shields.io/badge/fork%20of-databasus%2Fdatabasus-grey)](https://github.com/databasus/databasus)
 
   <p>
@@ -138,7 +138,7 @@ When restoring a backup, an **Advanced settings → Limit to tables** field lets
 
 ## 📦 Installation
 
-Pre-built binaries are published to the [GitHub releases page](https://github.com/pierresh/databasus/releases) automatically when a version tag is pushed:
+Pre-built binaries are published to the [GitHub releases page](https://github.com/pierresh/databasus-windows/releases) automatically when a version tag is pushed:
 
 ```bash
 git tag windows-v1.0.0
@@ -259,7 +259,7 @@ All GitHub Actions are pinned to full commit SHAs rather than floating tags like
 
 Critical paths are covered by both unit and integration tests. The CI/CD pipeline runs lint, type-check, and the full test suite on every PR. A release only ships if all of it passes.
 
-Found a vulnerability? Report it via the GitHub Security tab. See [SECURITY.md](https://github.com/pierresh/databasus?tab=security-ov-file#readme). Security reports are the highest-priority work queue. For runtime application security (AES-256-GCM at rest, zero-trust storage, encrypted secrets, read-only DB user by default) see [Enterprise-grade security](#-enterprise-grade-security) in the Features section above.
+Found a vulnerability? Report it via the GitHub Security tab. See [SECURITY.md](https://github.com/pierresh/databasus-windows?tab=security-ov-file#readme). Security reports are the highest-priority work queue. For runtime application security (AES-256-GCM at rest, zero-trust storage, encrypted secrets, read-only DB user by default) see [Enterprise-grade security](#-enterprise-grade-security) in the Features section above.
 
 ---
 
@@ -303,7 +303,7 @@ This project is licensed under the Apache 2.0 License - see the [LICENSE](LICENS
 
 ## 🤝 Contributing
 
-Contributions are welcome! Open an issue or pull request on [GitHub](https://github.com/pierresh/databasus). For the upstream project's broader contributing guide see [databasus.com/contribute](https://databasus.com/contribute).
+Contributions are welcome! Open an issue or pull request on [GitHub](https://github.com/pierresh/databasus-windows). For the upstream project's broader contributing guide see [databasus.com/contribute](https://databasus.com/contribute).
 
 ## FAQ
 
