@@ -16,9 +16,16 @@ var (
 	victoriaLogsWriter *VictoriaLogsWriter
 )
 
+// dynamicStdout forwards writes to whatever os.Stdout points to at call time,
+// so that redirecting os.Stdout after logger init (e.g. in Windows service mode)
+// still reaches the log file.
+type dynamicStdout struct{}
+
+func (dynamicStdout) Write(p []byte) (int, error) { return os.Stdout.Write(p) }
+
 var initLogger = sync.OnceFunc(func() {
 	// Create stdout handler
-	stdoutHandler := slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+	stdoutHandler := slog.NewTextHandler(dynamicStdout{}, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
 		ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
 			if a.Key == slog.TimeKey {

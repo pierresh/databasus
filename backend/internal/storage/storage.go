@@ -98,13 +98,29 @@ func registerUUIDCallback(db *gorm.DB) {
 			return
 		}
 
+		rv := db.Statement.ReflectValue
+
 		for _, field := range db.Statement.Schema.PrimaryFields {
 			if field.FieldType != uuidType {
 				continue
 			}
 
-			if _, isZero := field.ValueOf(db.Statement.Context, db.Statement.ReflectValue); isZero {
-				_ = field.Set(db.Statement.Context, db.Statement.ReflectValue, uuid.New())
+			switch rv.Kind() {
+			case reflect.Slice:
+				// GORM batch-creates associations as a slice; iterate each element.
+				for i := range rv.Len() {
+					elem := rv.Index(i)
+					for elem.Kind() == reflect.Ptr {
+						elem = elem.Elem()
+					}
+					if _, isZero := field.ValueOf(db.Statement.Context, elem); isZero {
+						_ = field.Set(db.Statement.Context, elem, uuid.New())
+					}
+				}
+			case reflect.Struct:
+				if _, isZero := field.ValueOf(db.Statement.Context, rv); isZero {
+					_ = field.Set(db.Statement.Context, rv, uuid.New())
+				}
 			}
 		}
 	})
