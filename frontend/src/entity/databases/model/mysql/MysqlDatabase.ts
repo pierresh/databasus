@@ -11,4 +11,6 @@ export interface MysqlDatabase {
   database?: string;
   isHttps: boolean;
   excludeTables?: string[];
+  includeTables?: string[];
+  restoreIncludeTables?: string[];
 }

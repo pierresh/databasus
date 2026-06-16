@@ -1,6 +1,7 @@
 package usecases_mysql
 
 import (
+	"bufio"
 	"context"
 	"encoding/base64"
 	"errors"
@@ -10,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -151,7 +153,16 @@ func (uc *RestoreMysqlBackupUsecase) restoreFromStorage(
 		}
 	}()
 
-	return uc.executeMysqlRestore(ctx, database, mysqlBin, args, myCnfFile, rawReader, backup)
+	return uc.executeMysqlRestore(
+		ctx,
+		database,
+		mysqlBin,
+		args,
+		myCnfFile,
+		rawReader,
+		backup,
+		myConfig.RestoreIncludeTables,
+	)
 }
 
 func (uc *RestoreMysqlBackupUsecase) executeMysqlRestore(
@@ -162,6 +173,7 @@ func (uc *RestoreMysqlBackupUsecase) executeMysqlRestore(
 	myCnfFile string,
 	backupReader io.ReadCloser,
 	backup *backups_core.Backup,
+	restoreIncludeTables []string,
 ) error {
 	fullArgs := append([]string{"--defaults-file=" + myCnfFile}, args...)
 
@@ -184,7 +196,7 @@ func (uc *RestoreMysqlBackupUsecase) executeMysqlRestore(
 	}
 	defer zstdReader.Close()
 
-	cmd.Stdin = zstdReader
+	cmd.Stdin = newTableIncludeFilterReader(zstdReader, restoreIncludeTables)
 
 	cmd.Env = os.Environ()
 	cmd.Env = append(cmd.Env,
@@ -267,6 +279,73 @@ func (uc *RestoreMysqlBackupUsecase) setupDecryption(
 
 	uc.logger.Info("Using decryption for encrypted backup", "backupId", backup.ID)
 	return decryptReader, nil
+}
+
+// tableSectionRe matches the comment headers in mysqldump output that mark
+// the beginning of a per-table DDL or data block.
+var tableSectionRe = regexp.MustCompile("^-- (?:Table structure for table|Dumping data for table) `([^`]+)`")
+
+// newTableIncludeFilterReader wraps r and emits only SQL sections for tables in
+// includeTables, plus the dump preamble and epilogue. Returns r unchanged when
+// includeTables is empty.
+func newTableIncludeFilterReader(r io.Reader, includeTables []string) io.Reader {
+	if len(includeTables) == 0 {
+		return r
+	}
+
+	includeSet := make(map[string]bool, len(includeTables))
+	for _, t := range includeTables {
+		if t = strings.TrimSpace(t); t != "" {
+			includeSet[t] = true
+		}
+	}
+
+	pr, pw := io.Pipe()
+
+	go func() {
+		scanner := bufio.NewScanner(r)
+		scanner.Buffer(make([]byte, 64*1024*1024), 64*1024*1024)
+
+		emit := true
+
+		for scanner.Scan() {
+			line := scanner.Bytes()
+			lineStr := string(line)
+
+			if m := tableSectionRe.FindStringSubmatch(lineStr); m != nil {
+				emit = includeSet[m[1]]
+				if emit {
+					if _, err := pw.Write(append(line, '\n')); err != nil {
+						pw.CloseWithError(err)
+						return
+					}
+				}
+				continue
+			}
+
+			if strings.HasPrefix(lineStr, "UNLOCK TABLES;") {
+				if emit {
+					if _, err := pw.Write(append(line, '\n')); err != nil {
+						pw.CloseWithError(err)
+						return
+					}
+				}
+				emit = true
+				continue
+			}
+
+			if emit {
+				if _, err := pw.Write(append(line, '\n')); err != nil {
+					pw.CloseWithError(err)
+					return
+				}
+			}
+		}
+
+		pw.CloseWithError(scanner.Err())
+	}()
+
+	return pr
 }
 
 func (uc *RestoreMysqlBackupUsecase) createTempMyCnfFile(

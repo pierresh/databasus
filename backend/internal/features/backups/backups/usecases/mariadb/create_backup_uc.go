@@ -125,7 +125,7 @@ func (uc *CreateMariadbBackupUsecase) buildMariadbDumpArgs(
 		args = append(args, "--events")
 	}
 
-	if mdb.Database != nil && *mdb.Database != "" {
+	if mdb.Database != nil && *mdb.Database != "" && len(mdb.IncludeTables) == 0 {
 		for _, table := range mdb.ExcludeTables {
 			args = append(args, "--ignore-table="+*mdb.Database+"."+table)
 		}
@@ -146,6 +146,7 @@ func (uc *CreateMariadbBackupUsecase) buildMariadbDumpArgs(
 
 	if mdb.Database != nil && *mdb.Database != "" {
 		args = append(args, *mdb.Database)
+		args = append(args, mdb.IncludeTables...)
 	}
 
 	return args

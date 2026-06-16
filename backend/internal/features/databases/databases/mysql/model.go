@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -26,16 +27,19 @@ type MysqlDatabase struct {
 
 	Version tools.MysqlVersion `json:"version" gorm:"type:text;not null"`
 
-	Host                string   `json:"host"            gorm:"type:text;not null"`
-	Port                int      `json:"port"            gorm:"type:int;not null"`
-	Username            string   `json:"username"        gorm:"type:text;not null"`
-	Password            string   `json:"password"        gorm:"type:text;not null"`
-	Database            *string  `json:"database"        gorm:"type:text"`
-	IsHttps             bool     `json:"isHttps"         gorm:"type:boolean;default:false"`
-	ExcludeTables       []string `json:"excludeTables"   gorm:"-"`
-	ExcludeTablesString string   `json:"-"               gorm:"column:exclude_tables;type:text;not null;default:''"`
-	Privileges          string   `json:"privileges"      gorm:"column:privileges;type:text;not null;default:''"`
-	IsZstdSupported     bool     `json:"isZstdSupported" gorm:"column:is_zstd_supported;type:boolean;not null;default:true"`
+	Host                 string   `json:"host"                 gorm:"type:text;not null"`
+	Port                 int      `json:"port"                 gorm:"type:int;not null"`
+	Username             string   `json:"username"             gorm:"type:text;not null"`
+	Password             string   `json:"password"             gorm:"type:text;not null"`
+	Database             *string  `json:"database"             gorm:"type:text"`
+	IsHttps              bool     `json:"isHttps"              gorm:"type:boolean;default:false"`
+	ExcludeTables        []string `json:"excludeTables"        gorm:"-"`
+	ExcludeTablesString  string   `json:"-"                    gorm:"column:exclude_tables;type:text;not null;default:''"`
+	IncludeTables        []string `json:"includeTables"        gorm:"-"`
+	IncludeTablesString  string   `json:"-"                    gorm:"column:include_tables;type:text;not null;default:''"`
+	RestoreIncludeTables []string `json:"restoreIncludeTables" gorm:"-"`
+	Privileges           string   `json:"privileges"           gorm:"column:privileges;type:text;not null;default:''"`
+	IsZstdSupported      bool     `json:"isZstdSupported"      gorm:"column:is_zstd_supported;type:boolean;not null;default:true"`
 }
 
 func (m *MysqlDatabase) TableName() string {
@@ -43,13 +47,16 @@ func (m *MysqlDatabase) TableName() string {
 }
 
 func (m *MysqlDatabase) BeforeSave(_ *gorm.DB) error {
-	if len(m.ExcludeTables) > 0 {
-		m.ExcludeTablesString = strings.Join(m.ExcludeTables, ",")
-	} else {
-		m.ExcludeTablesString = ""
-	}
+	m.ExcludeTablesString = strings.Join(filterTableNames(m.ExcludeTables), ",")
+	m.IncludeTablesString = strings.Join(filterTableNames(m.IncludeTables), ",")
 
 	return nil
+}
+
+func filterTableNames(tables []string) []string {
+	return slices.DeleteFunc(slices.Clone(tables), func(t string) bool {
+		return strings.TrimSpace(t) == ""
+	})
 }
 
 func (m *MysqlDatabase) AfterFind(_ *gorm.DB) error {
@@ -57,6 +64,12 @@ func (m *MysqlDatabase) AfterFind(_ *gorm.DB) error {
 		m.ExcludeTables = strings.Split(m.ExcludeTablesString, ",")
 	} else {
 		m.ExcludeTables = []string{}
+	}
+
+	if m.IncludeTablesString != "" {
+		m.IncludeTables = strings.Split(m.IncludeTablesString, ",")
+	} else {
+		m.IncludeTables = []string{}
 	}
 
 	return nil
@@ -193,6 +206,7 @@ func (m *MysqlDatabase) Update(incoming *MysqlDatabase) {
 	m.Database = incoming.Database
 	m.IsHttps = incoming.IsHttps
 	m.ExcludeTables = incoming.ExcludeTables
+	m.IncludeTables = incoming.IncludeTables
 	m.Privileges = incoming.Privileges
 	m.IsZstdSupported = incoming.IsZstdSupported
 

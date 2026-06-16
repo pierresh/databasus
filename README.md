@@ -122,6 +122,20 @@ It is also important for Databasus that you are able to decrypt and restore back
 
 ---
 
+## ➕ Enhancements over upstream
+
+Features added in this fork that are not present in [databasus/databasus](https://github.com/databasus/databasus):
+
+### Backup: limit to tables
+
+When configuring a database for backup, an **Advanced settings → Limit to tables** field lets you back up only a specific subset of tables instead of the entire database. When set, the backup uses `mariadb-dump`/`mysqldump`'s positional table argument, and the "Exclude tables" field is disabled.
+
+### Restore: limit to tables
+
+When restoring a backup, an **Advanced settings → Limit to tables** field lets you restore only specific tables from a full dump. Useful when you need to retrieve a few rows from an older backup without touching the rest of the database. Databasus streams and filters the SQL dump in-process — no intermediate files.
+
+---
+
 ## 📦 Installation
 
 Pre-built binaries are published to the [GitHub releases page](https://github.com/pierresh/databasus/releases) automatically when a version tag is pushed:

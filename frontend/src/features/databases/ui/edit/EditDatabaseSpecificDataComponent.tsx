@@ -135,9 +135,9 @@ export const EditDatabaseSpecificDataComponent = ({
     case DatabaseType.POSTGRES:
       return <EditPostgreSqlSpecificDataComponent {...commonProps} isRestoreMode={isRestoreMode} />;
     case DatabaseType.MYSQL:
-      return <EditMySqlSpecificDataComponent {...commonProps} />;
+      return <EditMySqlSpecificDataComponent {...commonProps} isRestoreMode={isRestoreMode} />;
     case DatabaseType.MARIADB:
-      return <EditMariaDbSpecificDataComponent {...commonProps} />;
+      return <EditMariaDbSpecificDataComponent {...commonProps} isRestoreMode={isRestoreMode} />;
     case DatabaseType.MONGODB:
       return <EditMongoDbSpecificDataComponent {...commonProps} />;
     default:

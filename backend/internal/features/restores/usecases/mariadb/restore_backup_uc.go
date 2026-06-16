@@ -162,6 +162,7 @@ func (uc *RestoreMariadbBackupUsecase) restoreFromStorage(
 		myCnfFile,
 		rawReader,
 		backup,
+		mdbConfig.RestoreIncludeTables,
 	)
 }
 
@@ -173,6 +174,7 @@ func (uc *RestoreMariadbBackupUsecase) executeMariadbRestore(
 	myCnfFile string,
 	backupReader io.ReadCloser,
 	backup *backups_core.Backup,
+	restoreIncludeTables []string,
 ) error {
 	fullArgs := append([]string{"--defaults-file=" + myCnfFile}, args...)
 
@@ -195,7 +197,7 @@ func (uc *RestoreMariadbBackupUsecase) executeMariadbRestore(
 	}
 	defer zstdReader.Close()
 
-	cmd.Stdin = newWsrepFilterReader(zstdReader)
+	cmd.Stdin = newTableIncludeFilterReader(newWsrepFilterReader(zstdReader), restoreIncludeTables)
 
 	cmd.Env = os.Environ()
 	cmd.Env = append(cmd.Env,
@@ -302,6 +304,73 @@ func newWsrepFilterReader(r io.Reader) io.Reader {
 			if _, err := pw.Write(append(line, '\n')); err != nil {
 				pw.CloseWithError(err)
 				return
+			}
+		}
+
+		pw.CloseWithError(scanner.Err())
+	}()
+
+	return pr
+}
+
+// tableSectionRe matches the comment headers in mariadb-dump output that mark
+// the beginning of a per-table DDL or data block.
+var tableSectionRe = regexp.MustCompile("^-- (?:Table structure for table|Dumping data for table) `([^`]+)`")
+
+// newTableIncludeFilterReader wraps r and emits only SQL sections for tables in
+// includeTables, plus the dump preamble and epilogue. Returns r unchanged when
+// includeTables is empty.
+func newTableIncludeFilterReader(r io.Reader, includeTables []string) io.Reader {
+	if len(includeTables) == 0 {
+		return r
+	}
+
+	includeSet := make(map[string]bool, len(includeTables))
+	for _, t := range includeTables {
+		if t = strings.TrimSpace(t); t != "" {
+			includeSet[t] = true
+		}
+	}
+
+	pr, pw := io.Pipe()
+
+	go func() {
+		scanner := bufio.NewScanner(r)
+		scanner.Buffer(make([]byte, 64*1024*1024), 64*1024*1024)
+
+		emit := true
+
+		for scanner.Scan() {
+			line := scanner.Bytes()
+			lineStr := string(line)
+
+			if m := tableSectionRe.FindStringSubmatch(lineStr); m != nil {
+				emit = includeSet[m[1]]
+				if emit {
+					if _, err := pw.Write(append(line, '\n')); err != nil {
+						pw.CloseWithError(err)
+						return
+					}
+				}
+				continue
+			}
+
+			if strings.HasPrefix(lineStr, "UNLOCK TABLES;") {
+				if emit {
+					if _, err := pw.Write(append(line, '\n')); err != nil {
+						pw.CloseWithError(err)
+						return
+					}
+				}
+				emit = true
+				continue
+			}
+
+			if emit {
+				if _, err := pw.Write(append(line, '\n')); err != nil {
+					pw.CloseWithError(err)
+					return
+				}
 			}
 		}
 
