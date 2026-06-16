@@ -174,10 +174,6 @@ export const EditMySqlSpecificDataComponent = ({
   if (!editingDatabase.id && !editingDatabase.mysql?.password) isAllFieldsFilled = false;
   if (!editingDatabase.mysql?.database) isAllFieldsFilled = false;
 
-  const isLocalhostDb =
-    editingDatabase.mysql?.host?.includes('localhost') ||
-    editingDatabase.mysql?.host?.includes('127.0.0.1');
-
   return (
     <div>
       <div className="mb-3 flex">
@@ -212,24 +208,6 @@ export const EditMySqlSpecificDataComponent = ({
           placeholder="Enter MySQL host"
         />
       </div>
-
-      {isLocalhostDb && !IS_CLOUD && (
-        <div className="mb-1 flex">
-          <div className="min-w-[150px]" />
-          <div className="max-w-[200px] text-xs text-gray-500 dark:text-gray-400">
-            Please{' '}
-            <a
-              href="https://databasus.com/faq/localhost"
-              target="_blank"
-              rel="noreferrer"
-              className="!text-blue-600 dark:!text-blue-400"
-            >
-              read this document
-            </a>{' '}
-            to study how to backup local database
-          </div>
-        </div>
-      )}
 
       <div className="mb-1 flex w-full items-center">
         <div className="min-w-[150px]">Port</div>

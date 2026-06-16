@@ -1,6 +1,7 @@
 package usecases_mariadb
 
 import (
+	"bufio"
 	"context"
 	"encoding/base64"
 	"errors"
@@ -10,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -68,14 +70,6 @@ func (uc *RestoreMariadbBackupUsecase) Execute(
 		"--port=" + strconv.Itoa(mdb.Port),
 		"--user=" + mdb.Username,
 		"--verbose",
-	}
-
-	// Disable Galera Cluster replication for the restore session to prevent
-	// "Maximum writeset size exceeded" errors on large restores.
-	// wsrep_on is available in MariaDB 10.1+ (all builds with Galera support).
-	// On non-Galera instances the variable still exists but is a no-op.
-	if mdb.Version != tools.MariadbVersion55 {
-		args = append(args, "--init-command=SET SESSION wsrep_on=OFF")
 	}
 
 	if !config.GetEnv().IsCloud {
@@ -201,7 +195,7 @@ func (uc *RestoreMariadbBackupUsecase) executeMariadbRestore(
 	}
 	defer zstdReader.Close()
 
-	cmd.Stdin = zstdReader
+	cmd.Stdin = newWsrepFilterReader(zstdReader)
 
 	cmd.Env = os.Environ()
 	cmd.Env = append(cmd.Env,
@@ -284,6 +278,37 @@ func (uc *RestoreMariadbBackupUsecase) setupDecryption(
 
 	uc.logger.Info("Using decryption for encrypted backup", "backupId", backup.ID)
 	return decryptReader, nil
+}
+
+// wsrepLineRe matches SET statements for wsrep_on produced by mariadb-dump
+// when backing up a Galera Cluster node. These statements fail on standard
+// (non-Galera) MariaDB servers with "Unknown system variable 'wsrep_on'".
+var wsrepLineRe = regexp.MustCompile(`(?i)^\s*(\/\*![\d]+\s+)?SET\s+(SESSION\s+|@@(SESSION\.)?)?wsrep_on\b`)
+
+// newWsrepFilterReader wraps r and strips wsrep_on SET lines from the SQL
+// stream. Uses a 64 MB line buffer to handle large INSERT rows safely.
+func newWsrepFilterReader(r io.Reader) io.Reader {
+	pr, pw := io.Pipe()
+
+	go func() {
+		scanner := bufio.NewScanner(r)
+		scanner.Buffer(make([]byte, 64*1024*1024), 64*1024*1024)
+
+		for scanner.Scan() {
+			line := scanner.Bytes()
+			if wsrepLineRe.Match(line) {
+				continue
+			}
+			if _, err := pw.Write(append(line, '\n')); err != nil {
+				pw.CloseWithError(err)
+				return
+			}
+		}
+
+		pw.CloseWithError(scanner.Err())
+	}()
+
+	return pr
 }
 
 func (uc *RestoreMariadbBackupUsecase) createTempMyCnfFile(

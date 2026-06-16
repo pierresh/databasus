@@ -1,8 +1,7 @@
 ansible/
 databasus-data/
 dist/
-databasus.exe
-databasus.zip
+dist-windows/
 .env
 pgdata/
 pgdata-test/

@@ -2,12 +2,11 @@
   <img src="assets/logo.svg" alt="Databasus Logo" width="250"/>
 
   <h3>MySQL/MariaDB backup tool for Windows Server — standalone <code>.exe</code>, no Docker required</h3>
-  <p>This is a fork of <a href="https://github.com/databasus/databasus">databasus/databasus</a> focused on Windows Server deployment as a self-contained <code>.exe</code>. No Docker or Kubernetes required. Primary backup targets are MySQL and MariaDB. The original project also supports PostgreSQL, MongoDB, Docker-based and Kubernetes deployments — see the upstream repository.</p>
+  <p>This is a fork of <a href="https://github.com/databasus/databasus">databasus/databasus</a> focused on Windows Server deployment as a self-contained <code>.exe</code>. No Docker or Kubernetes required. Primary backup targets are MySQL and MariaDB. The original project also supports PostgreSQL, MongoDB, Docker-based and Kubernetes deployments — see the upstream repository for those.</p>
   
   <!-- Badges -->
   [![MySQL](https://img.shields.io/badge/MySQL-4479A1?logo=mysql&logoColor=white)](https://www.mysql.com/)
   [![MariaDB](https://img.shields.io/badge/MariaDB-003545?logo=mariadb&logoColor=white)](https://mariadb.org/)
-  [![MongoDB](https://img.shields.io/badge/MongoDB-47A248?logo=mongodb&logoColor=white)](https://www.mongodb.com/)
   <br />
   [![Apache 2.0 License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
   [![Platform](https://img.shields.io/badge/platform-windows--server-0078d4?logo=windows)](https://github.com/pierresh/databasus)
@@ -40,8 +39,6 @@
 
 - **MySQL**: 5.7, 8 and 9
 - **MariaDB**: 10, 11 and 12
-- **MongoDB**: 4.2+, 5, 6, 7 and 8
-- **PostgreSQL**: 12–18 — not recommended in standalone mode (client tools not bundled; app starts with a warning)
 
 ### 🔄 **Scheduled backups**
 
@@ -49,9 +46,13 @@
 - **Precise timing**: run backups at specific times (e.g., 4 AM during low traffic)
 - **Smart compression**: 4-8x space savings with balanced compression (~20% overhead)
 
+### 🔄 **Restore**
+
+Restoring a backup to a database is fully supported. Select a backup, choose the target database and credentials, and Databasus streams the restore directly — no intermediate files.
+
 ### 🧪 **Restore verification** <a href="https://databasus.com/restore-verification">(docs)</a>
 
-> **Not available in standalone mode.** Restore verification spins up a temporary database container and requires Docker. It is supported in the upstream Docker-based deployment.
+> **Requires Docker — not available in this deployment.** Restore verification spins up a temporary database container to confirm backups are restorable. It is supported in the upstream Docker-based deployment.
 
 Databasus performs a real restore to confirm backups are usable, not just intact on disk or checksum check.
 
@@ -141,9 +142,7 @@ C:\databasus\
 └── install-service.ps1
 ```
 
-That's the entire installation — no Docker, no extra tools, no configuration file. The UI and all database client tools (MySQL, MariaDB, MongoDB) are embedded inside `databasus.exe` and extracted automatically on first launch.
-
-MySQL and MariaDB backup targets are fully supported. MongoDB is also bundled. PostgreSQL backup targets are not recommended — client tools are not included and the app starts with a warning.
+That's the entire installation — no Docker, no extra tools, no configuration file. The UI and all database client tools are embedded inside `databasus.exe` and extracted automatically on first launch.
 
 ### First run (manual)
 
@@ -274,7 +273,7 @@ cd backend
 make build-windows
 ```
 
-This single command builds the React frontend, embeds it and all client tools (MySQL, MariaDB, MongoDB) into the binary, cross-compiles for Windows amd64, and produces `databasus.zip` at the repo root containing:
+This single command builds the React frontend, embeds it and all client tools into the binary, cross-compiles for Windows amd64, and produces `dist-windows/databasus.zip` containing:
 
 ```
 databasus.exe

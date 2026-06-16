@@ -193,10 +193,6 @@ export const EditMongoDbSpecificDataComponent = ({
   if (!editingDatabase.id && !editingDatabase.mongodb?.password) isAllFieldsFilled = false;
   if (!editingDatabase.mongodb?.database) isAllFieldsFilled = false;
 
-  const isLocalhostDb =
-    editingDatabase.mongodb?.host?.includes('localhost') ||
-    editingDatabase.mongodb?.host?.includes('127.0.0.1');
-
   return (
     <div>
       <div className="mb-3 flex">
@@ -231,24 +227,6 @@ export const EditMongoDbSpecificDataComponent = ({
           placeholder="Enter MongoDB host"
         />
       </div>
-
-      {isLocalhostDb && !IS_CLOUD && (
-        <div className="mb-1 flex">
-          <div className="min-w-[150px]" />
-          <div className="max-w-[200px] text-xs text-gray-500 dark:text-gray-400">
-            Please{' '}
-            <a
-              href="https://databasus.com/faq/localhost"
-              target="_blank"
-              rel="noreferrer"
-              className="!text-blue-600 dark:!text-blue-400"
-            >
-              read this document
-            </a>{' '}
-            to study how to backup local database
-          </div>
-        </div>
-      )}
 
       {!isSrvConnection && (
         <div className="mb-1 flex w-full items-center">

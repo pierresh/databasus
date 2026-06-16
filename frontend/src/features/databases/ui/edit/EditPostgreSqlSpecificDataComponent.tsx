@@ -400,10 +400,6 @@ export const EditPostgreSqlSpecificDataComponent = ({
     if (!editingDatabase.id && !editingDatabase.postgresql?.password) isAllFieldsFilled = false;
     if (!editingDatabase.postgresql?.database) isAllFieldsFilled = false;
 
-    const isLocalhostDb =
-      editingDatabase.postgresql?.host?.includes('localhost') ||
-      editingDatabase.postgresql?.host?.includes('127.0.0.1');
-
     const isSupabaseDb =
       editingDatabase.postgresql?.host?.includes('supabase') ||
       editingDatabase.postgresql?.username?.includes('supabase');
@@ -460,24 +456,6 @@ export const EditPostgreSqlSpecificDataComponent = ({
             placeholder="Enter PG host"
           />
         </div>
-
-        {isLocalhostDb && !IS_CLOUD && (
-          <div className="mb-1 flex">
-            <div className="min-w-[150px]" />
-            <div className="max-w-[200px] text-xs text-gray-500 dark:text-gray-400">
-              Please{' '}
-              <a
-                href="https://databasus.com/faq/localhost"
-                target="_blank"
-                rel="noreferrer"
-                className="!text-blue-600 dark:!text-blue-400"
-              >
-                read this document
-              </a>{' '}
-              to study how to backup local database
-            </div>
-          </div>
-        )}
 
         {isSupabaseDb && (
           <div className="mb-1 flex">

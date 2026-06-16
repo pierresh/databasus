@@ -7,7 +7,7 @@ import (
 	"log/slog"
 )
 
-func isRunningAsWindowsService() bool         { return false }
+func isRunningAsWindowsService() bool          { return false }
 func runAsWindowsService(_ *slog.Logger) error { return nil }
 
 func installWindowsService() error {

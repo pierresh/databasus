@@ -64,9 +64,9 @@ const initializeDatabaseTypeData = (db: Database): Database => {
           } as PostgresqlDatabase),
       };
     case DatabaseType.MYSQL:
-      return { ...base, mysql: db.mysql ?? ({} as MysqlDatabase) };
+      return { ...base, mysql: db.mysql ?? ({ port: 3306 } as MysqlDatabase) };
     case DatabaseType.MARIADB:
-      return { ...base, mariadb: db.mariadb ?? ({} as MariadbDatabase) };
+      return { ...base, mariadb: db.mariadb ?? ({ port: 3306 } as MariadbDatabase) };
     case DatabaseType.MONGODB:
       return { ...base, mongodb: db.mongodb ?? ({ cpuCount: 1 } as MongodbDatabase) };
     default:

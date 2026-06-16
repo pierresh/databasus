@@ -33,20 +33,26 @@ const clearCredentials = <T extends DatabaseCredentials>(db: T | undefined): T |
   if (!db) return undefined;
   return {
     ...db,
-    username: undefined,
     host: undefined,
     port: undefined,
+    username: undefined,
     password: undefined,
+    database: undefined,
   } as T;
 };
 
-const createInitialEditingDatabase = (database: Database): Database => ({
-  ...database,
-  postgresql: clearCredentials(database.postgresql),
-  mysql: clearCredentials(database.mysql),
-  mariadb: clearCredentials(database.mariadb),
-  mongodb: clearCredentials(database.mongodb),
-});
+const createInitialEditingDatabase = (database: Database): Database => {
+  const mysql = clearCredentials(database.mysql);
+  const mariadb = clearCredentials(database.mariadb);
+
+  return {
+    ...database,
+    postgresql: clearCredentials(database.postgresql),
+    mysql: mysql ? { ...mysql, port: 3306 } : undefined,
+    mariadb: mariadb ? { ...mariadb, port: 3306 } : undefined,
+    mongodb: clearCredentials(database.mongodb),
+  };
+};
 
 const getRestorePayload = (database: Database, editingDatabase: Database) => {
   switch (database.type) {

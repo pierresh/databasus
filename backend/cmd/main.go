@@ -69,8 +69,16 @@ var (
 	// flag.Parse() runs. It is registered here so flag.Parse() does not reject it.
 	_ = flag.Bool("standalone", false, "Run without Docker using embedded PostgreSQL")
 
-	flagInstallService   = flag.Bool("install-service", false, "Install databasus as a Windows Service that starts automatically (requires administrator)")
-	flagUninstallService = flag.Bool("uninstall-service", false, "Uninstall the Databasus Windows Service (requires administrator)")
+	flagInstallService = flag.Bool(
+		"install-service",
+		false,
+		"Install databasus as a Windows Service that starts automatically (requires administrator)",
+	)
+	flagUninstallService = flag.Bool(
+		"uninstall-service",
+		false,
+		"Uninstall the Databasus Windows Service (requires administrator)",
+	)
 )
 
 // serviceShutdown is closed by the Windows Service handler when the Service

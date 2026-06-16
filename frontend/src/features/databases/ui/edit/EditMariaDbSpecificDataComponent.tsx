@@ -175,10 +175,6 @@ export const EditMariaDbSpecificDataComponent = ({
   if (!editingDatabase.id && !editingDatabase.mariadb?.password) isAllFieldsFilled = false;
   if (!editingDatabase.mariadb?.database) isAllFieldsFilled = false;
 
-  const isLocalhostDb =
-    editingDatabase.mariadb?.host?.includes('localhost') ||
-    editingDatabase.mariadb?.host?.includes('127.0.0.1');
-
   return (
     <div>
       <div className="mb-3 flex">
@@ -213,24 +209,6 @@ export const EditMariaDbSpecificDataComponent = ({
           placeholder="Enter MariaDB host"
         />
       </div>
-
-      {isLocalhostDb && !IS_CLOUD && (
-        <div className="mb-1 flex">
-          <div className="min-w-[150px]" />
-          <div className="max-w-[200px] text-xs text-gray-500 dark:text-gray-400">
-            Please{' '}
-            <a
-              href="https://databasus.com/faq/localhost"
-              target="_blank"
-              rel="noreferrer"
-              className="!text-blue-600 dark:!text-blue-400"
-            >
-              read this document
-            </a>{' '}
-            to study how to backup local database
-          </div>
-        </div>
-      )}
 
       <div className="mb-1 flex w-full items-center">
         <div className="min-w-[150px]">Port</div>

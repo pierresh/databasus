@@ -1200,10 +1200,11 @@ jobs:
 
       - name: Cross-compile Windows amd64 binary
         run: |
+          mkdir -p dist-windows
           cd backend
           GOOS=windows GOARCH=amd64 go build \
             -ldflags "-s -w" \
-            -o ../databasus.exe \
+            -o ../dist-windows/databasus.exe \
             ./cmd
           rm -rf embedded_tools/win-x64
           mkdir -p embedded_tools/win-x64
@@ -1211,7 +1212,8 @@ jobs:
 
       - name: Package standalone distribution
         run: |
-          zip databasus.zip databasus.exe install-service.bat install-service.ps1
+          zip -j dist-windows/databasus.zip dist-windows/databasus.exe install-service.bat install-service.ps1
+          rm dist-windows/databasus.exe
 
       - name: Upload to GitHub Release
         env:
@@ -1219,6 +1221,6 @@ jobs:
         run: |
           gh release upload \
             "v${{ needs.determine-version.outputs.new_version }}" \
-            databasus.zip \
+            dist-windows/databasus.zip \
             --repo "${{ github.repository }}" \
             --clobber

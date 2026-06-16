@@ -175,7 +175,7 @@ export const EditBackupConfigComponent = ({
             isBackupsEnabled: true,
             backupInterval: {
               type: IntervalType.DAILY,
-              timeOfDay: '03:00',
+              timeOfDay: dayjs().hour(3).minute(0).second(0).utc().format('HH:mm'),
             },
             storage: undefined,
             retentionPolicyType: RetentionPolicyType.GFS,
