@@ -13,4 +13,5 @@ export interface MariadbDatabase {
   excludeTables?: string[];
   includeTables?: string[];
   restoreIncludeTables?: string[];
+  restoreExcludeTables?: string[];
 }

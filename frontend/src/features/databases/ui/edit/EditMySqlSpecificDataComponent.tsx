@@ -51,9 +51,9 @@ export const EditMySqlSpecificDataComponent = ({
   const [isConnectionFailed, setIsConnectionFailed] = useState(false);
 
   const hasAdvancedValues = isRestoreMode
-    ? !!database.mysql?.restoreIncludeTables?.length
+    ? !!database.mysql?.restoreIncludeTables?.length || !!database.mysql?.restoreExcludeTables?.length
     : !!database.mysql?.excludeTables?.length || !!database.mysql?.includeTables?.length;
-  const [isShowAdvanced, setShowAdvanced] = useState(hasAdvancedValues);
+  const [isShowAdvanced, setShowAdvanced] = useState(hasAdvancedValues || isRestoreMode || !database.id);
 
   const [isShowPasteModal, setIsShowPasteModal] = useState(false);
 
@@ -329,32 +329,62 @@ export const EditMySqlSpecificDataComponent = ({
       </div>
 
       {isShowAdvanced && isRestoreMode && (
-        <div className="mb-1 flex w-full items-center">
-          <div className="min-w-[150px]">Limit to tables</div>
-          <Select
-            mode="tags"
-            value={editingDatabase.mysql?.restoreIncludeTables || []}
-            onChange={(values) => {
-              if (!editingDatabase.mysql) return;
+        <>
+          <div className="mb-1 flex w-full items-center">
+            <div className="min-w-[150px]">Limit to tables</div>
+            <Select
+              mode="tags"
+              value={editingDatabase.mysql?.restoreIncludeTables || []}
+              onChange={(values) => {
+                if (!editingDatabase.mysql) return;
 
-              setEditingDatabase({
-                ...editingDatabase,
-                mysql: { ...editingDatabase.mysql, restoreIncludeTables: values },
-              });
-            }}
-            size="small"
-            className="max-w-[200px] grow"
-            placeholder="All tables restored"
-            tokenSeparators={[',']}
-          />
+                setEditingDatabase({
+                  ...editingDatabase,
+                  mysql: { ...editingDatabase.mysql, restoreIncludeTables: values },
+                });
+              }}
+              size="small"
+              className="max-w-[200px] grow"
+              placeholder="All tables restored"
+              tokenSeparators={[',']}
+            />
 
-          <Tooltip
-            className="cursor-pointer"
-            title="Restore only these tables. Leave empty to restore all tables."
-          >
-            <InfoCircleOutlined className="ml-2" style={{ color: 'gray' }} />
-          </Tooltip>
-        </div>
+            <Tooltip
+              className="cursor-pointer"
+              title="Restore only these tables. When set, Exclude tables is ignored."
+            >
+              <InfoCircleOutlined className="ml-2" style={{ color: 'gray' }} />
+            </Tooltip>
+          </div>
+
+          <div className="mb-1 flex w-full items-center">
+            <div className="min-w-[150px]">Exclude tables</div>
+            <Select
+              mode="tags"
+              disabled={!!editingDatabase.mysql?.restoreIncludeTables?.length}
+              value={editingDatabase.mysql?.restoreExcludeTables || []}
+              onChange={(values) => {
+                if (!editingDatabase.mysql) return;
+
+                setEditingDatabase({
+                  ...editingDatabase,
+                  mysql: { ...editingDatabase.mysql, restoreExcludeTables: values },
+                });
+              }}
+              size="small"
+              className="max-w-[200px] grow"
+              placeholder="No tables excluded"
+              tokenSeparators={[',']}
+            />
+
+            <Tooltip
+              className="cursor-pointer"
+              title="Skip these tables during restore. Ignored when Limit to tables is set."
+            >
+              <InfoCircleOutlined className="ml-2" style={{ color: 'gray' }} />
+            </Tooltip>
+          </div>
+        </>
       )}
 
       {isShowAdvanced && !isRestoreMode && (

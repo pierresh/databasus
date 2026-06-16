@@ -13,4 +13,5 @@ export interface MysqlDatabase {
   excludeTables?: string[];
   includeTables?: string[];
   restoreIncludeTables?: string[];
+  restoreExcludeTables?: string[];
 }

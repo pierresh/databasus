@@ -163,6 +163,7 @@ func (uc *RestoreMariadbBackupUsecase) restoreFromStorage(
 		rawReader,
 		backup,
 		mdbConfig.RestoreIncludeTables,
+		mdbConfig.RestoreExcludeTables,
 	)
 }
 
@@ -175,6 +176,7 @@ func (uc *RestoreMariadbBackupUsecase) executeMariadbRestore(
 	backupReader io.ReadCloser,
 	backup *backups_core.Backup,
 	restoreIncludeTables []string,
+	restoreExcludeTables []string,
 ) error {
 	fullArgs := append([]string{"--defaults-file=" + myCnfFile}, args...)
 
@@ -197,7 +199,7 @@ func (uc *RestoreMariadbBackupUsecase) executeMariadbRestore(
 	}
 	defer zstdReader.Close()
 
-	cmd.Stdin = newTableIncludeFilterReader(newWsrepFilterReader(zstdReader), restoreIncludeTables)
+	cmd.Stdin = newTableFilterReader(newWsrepFilterReader(zstdReader), restoreIncludeTables, restoreExcludeTables)
 
 	cmd.Env = os.Environ()
 	cmd.Env = append(cmd.Env,
@@ -317,20 +319,17 @@ func newWsrepFilterReader(r io.Reader) io.Reader {
 // the beginning of a per-table DDL or data block.
 var tableSectionRe = regexp.MustCompile("^-- (?:Table structure for table|Dumping data for table) `([^`]+)`")
 
-// newTableIncludeFilterReader wraps r and emits only SQL sections for tables in
-// includeTables, plus the dump preamble and epilogue. Returns r unchanged when
-// includeTables is empty.
-func newTableIncludeFilterReader(r io.Reader, includeTables []string) io.Reader {
-	if len(includeTables) == 0 {
+// newTableFilterReader filters the SQL dump stream by table name.
+// When includeTables is non-empty, only those tables are emitted (excludeTables is ignored).
+// When only excludeTables is set, all tables except those are emitted.
+// Returns r unchanged when both slices are empty.
+func newTableFilterReader(r io.Reader, includeTables, excludeTables []string) io.Reader {
+	if len(includeTables) == 0 && len(excludeTables) == 0 {
 		return r
 	}
 
-	includeSet := make(map[string]bool, len(includeTables))
-	for _, t := range includeTables {
-		if t = strings.TrimSpace(t); t != "" {
-			includeSet[t] = true
-		}
-	}
+	includeSet := makeTableSet(includeTables)
+	excludeSet := makeTableSet(excludeTables)
 
 	pr, pw := io.Pipe()
 
@@ -345,7 +344,11 @@ func newTableIncludeFilterReader(r io.Reader, includeTables []string) io.Reader 
 			lineStr := string(line)
 
 			if m := tableSectionRe.FindStringSubmatch(lineStr); m != nil {
-				emit = includeSet[m[1]]
+				if len(includeSet) > 0 {
+					emit = includeSet[m[1]]
+				} else {
+					emit = !excludeSet[m[1]]
+				}
 				if emit {
 					if _, err := pw.Write(append(line, '\n')); err != nil {
 						pw.CloseWithError(err)
@@ -378,6 +381,16 @@ func newTableIncludeFilterReader(r io.Reader, includeTables []string) io.Reader 
 	}()
 
 	return pr
+}
+
+func makeTableSet(tables []string) map[string]bool {
+	set := make(map[string]bool, len(tables))
+	for _, t := range tables {
+		if t = strings.TrimSpace(t); t != "" {
+			set[t] = true
+		}
+	}
+	return set
 }
 
 func (uc *RestoreMariadbBackupUsecase) createTempMyCnfFile(

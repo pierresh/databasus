@@ -38,6 +38,7 @@ type MysqlDatabase struct {
 	IncludeTables        []string `json:"includeTables"        gorm:"-"`
 	IncludeTablesString  string   `json:"-"                    gorm:"column:include_tables;type:text;not null;default:''"`
 	RestoreIncludeTables []string `json:"restoreIncludeTables" gorm:"-"`
+	RestoreExcludeTables []string `json:"restoreExcludeTables" gorm:"-"`
 	Privileges           string   `json:"privileges"           gorm:"column:privileges;type:text;not null;default:''"`
 	IsZstdSupported      bool     `json:"isZstdSupported"      gorm:"column:is_zstd_supported;type:boolean;not null;default:true"`
 }

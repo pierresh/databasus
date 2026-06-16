@@ -51,11 +51,11 @@ export const EditMariaDbSpecificDataComponent = ({
   const [isConnectionFailed, setIsConnectionFailed] = useState(false);
 
   const hasAdvancedValues = isRestoreMode
-    ? !!database.mariadb?.restoreIncludeTables?.length
+    ? !!database.mariadb?.restoreIncludeTables?.length || !!database.mariadb?.restoreExcludeTables?.length
     : !!database.mariadb?.isExcludeEvents ||
       !!database.mariadb?.excludeTables?.length ||
       !!database.mariadb?.includeTables?.length;
-  const [isShowAdvanced, setShowAdvanced] = useState(hasAdvancedValues);
+  const [isShowAdvanced, setShowAdvanced] = useState(hasAdvancedValues || isRestoreMode || !database.id);
 
   const [isShowPasteModal, setIsShowPasteModal] = useState(false);
 
@@ -331,32 +331,62 @@ export const EditMariaDbSpecificDataComponent = ({
       </div>
 
       {isShowAdvanced && isRestoreMode && (
-        <div className="mb-1 flex w-full items-center">
-          <div className="min-w-[150px]">Limit to tables</div>
-          <Select
-            mode="tags"
-            value={editingDatabase.mariadb?.restoreIncludeTables || []}
-            onChange={(values) => {
-              if (!editingDatabase.mariadb) return;
+        <>
+          <div className="mb-1 flex w-full items-center">
+            <div className="min-w-[150px]">Limit to tables</div>
+            <Select
+              mode="tags"
+              value={editingDatabase.mariadb?.restoreIncludeTables || []}
+              onChange={(values) => {
+                if (!editingDatabase.mariadb) return;
 
-              setEditingDatabase({
-                ...editingDatabase,
-                mariadb: { ...editingDatabase.mariadb, restoreIncludeTables: values },
-              });
-            }}
-            size="small"
-            className="max-w-[200px] grow"
-            placeholder="All tables restored"
-            tokenSeparators={[',']}
-          />
+                setEditingDatabase({
+                  ...editingDatabase,
+                  mariadb: { ...editingDatabase.mariadb, restoreIncludeTables: values },
+                });
+              }}
+              size="small"
+              className="max-w-[200px] grow"
+              placeholder="All tables restored"
+              tokenSeparators={[',']}
+            />
 
-          <Tooltip
-            className="cursor-pointer"
-            title="Restore only these tables. Leave empty to restore all tables."
-          >
-            <InfoCircleOutlined className="ml-2" style={{ color: 'gray' }} />
-          </Tooltip>
-        </div>
+            <Tooltip
+              className="cursor-pointer"
+              title="Restore only these tables. When set, Exclude tables is ignored."
+            >
+              <InfoCircleOutlined className="ml-2" style={{ color: 'gray' }} />
+            </Tooltip>
+          </div>
+
+          <div className="mb-1 flex w-full items-center">
+            <div className="min-w-[150px]">Exclude tables</div>
+            <Select
+              mode="tags"
+              disabled={!!editingDatabase.mariadb?.restoreIncludeTables?.length}
+              value={editingDatabase.mariadb?.restoreExcludeTables || []}
+              onChange={(values) => {
+                if (!editingDatabase.mariadb) return;
+
+                setEditingDatabase({
+                  ...editingDatabase,
+                  mariadb: { ...editingDatabase.mariadb, restoreExcludeTables: values },
+                });
+              }}
+              size="small"
+              className="max-w-[200px] grow"
+              placeholder="No tables excluded"
+              tokenSeparators={[',']}
+            />
+
+            <Tooltip
+              className="cursor-pointer"
+              title="Skip these tables during restore. Ignored when Limit to tables is set."
+            >
+              <InfoCircleOutlined className="ml-2" style={{ color: 'gray' }} />
+            </Tooltip>
+          </div>
+        </>
       )}
 
       {isShowAdvanced && !isRestoreMode && (
