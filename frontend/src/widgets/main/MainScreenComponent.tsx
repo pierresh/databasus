@@ -2,7 +2,7 @@ import { LoadingOutlined, MenuOutlined } from '@ant-design/icons';
 import { App, Button, Spin, Tooltip } from 'antd';
 import { useEffect, useState } from 'react';
 
-import { APP_VERSION, CONTAINER_ARCH, IS_CLOUD, IS_DISABLE_CLOUD_NOTICE } from '../../constants';
+import { APP_VERSION, CONTAINER_ARCH, IS_CLOUD } from '../../constants';
 import { type DiskUsage, diskApi } from '../../entity/disk';
 import {
   type UserProfile,
@@ -26,7 +26,6 @@ import {
   useIsMobile,
   useIsNewGitHubVersionAvailable,
   useScreenHeight,
-  useTemporaryVisibility,
 } from '../../shared/hooks';
 import { StarButtonComponent } from '../../shared/ui/StarButtonComponent';
 import { ThemeToggleComponent } from '../../shared/ui/ThemeToggleComponent';
@@ -38,7 +37,6 @@ export const MainScreenComponent = () => {
   const screenHeight = useScreenHeight();
   const isMobile = useIsMobile();
   const isNewGitHubVersionAvailable = useIsNewGitHubVersionAvailable();
-  const isCloudPulseVisible = useTemporaryVisibility(15_000);
   const contentHeight = screenHeight - (isMobile ? 70 : 95);
 
   const [selectedTab, setSelectedTab] = useState<
@@ -202,7 +200,7 @@ export const MainScreenComponent = () => {
     <div style={{ height: screenHeight }} className="bg-[#f5f5f5] p-2 md:p-3 dark:bg-gray-900">
       <div className="mb-2 flex h-[50px] items-center rounded bg-white px-2 py-2 shadow md:mb-3 md:h-[60px] md:p-3 dark:bg-gray-800">
         <div className="flex items-center gap-2 hover:opacity-80 md:gap-3">
-          <a href="https://databasus.com" target="_blank" rel="noreferrer">
+          <a href="https://databasus.com/mysql-backup" target="_blank" rel="noreferrer">
             <img className="h-[30px] w-[30px] p-1 md:h-[40px] md:w-[40px]" src="/logo.svg" />
           </a>
         </div>
@@ -219,55 +217,14 @@ export const MainScreenComponent = () => {
         </div>
 
         <div className="ml-auto hidden items-center gap-5 md:flex">
-          {!IS_CLOUD && !IS_DISABLE_CLOUD_NOTICE && (
-            <Tooltip title="99.9% uptime, 2x backup copies">
-              <a
-                className="flex items-center gap-2 !text-black hover:opacity-80 dark:!text-gray-200"
-                href="https://databasus.com/cloud"
-                target="_blank"
-                rel="noreferrer"
-              >
-                {isCloudPulseVisible && (
-                  <span
-                    className="relative flex h-2 w-2"
-                    aria-label="99.9% uptime, 2 backup copies"
-                  >
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-500 opacity-75" />
-                    <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
-                  </span>
-                )}
-                Cloud
-              </a>
-            </Tooltip>
-          )}
-
-          {!IS_CLOUD && !IS_DISABLE_CLOUD_NOTICE && (
-            <a
-              className="!text-black hover:opacity-80 dark:!text-gray-200"
-              href="https://databasus.com/labs"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Labs
-            </a>
-          )}
 
           <a
             className="!text-black hover:opacity-80 dark:!text-gray-200"
-            href="https://databasus.com/installation"
+            href="https://databasus.com/mysql-backup"
             target="_blank"
             rel="noreferrer"
           >
             Docs
-          </a>
-
-          <a
-            className="!text-black hover:opacity-80 dark:!text-gray-200"
-            href="https://t.me/databasus_community"
-            target="_blank"
-            rel="noreferrer"
-          >
-            Community
           </a>
 
           {isUsedMoreThan85Percent && (
