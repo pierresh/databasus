@@ -2,6 +2,7 @@ package notifiers
 
 import (
 	"errors"
+	"fmt"
 	"log/slog"
 
 	"github.com/google/uuid"
@@ -49,6 +50,14 @@ func (n *Notifier) Send(
 	heading string,
 	message string,
 ) error {
+	heading = fmt.Sprintf("[%s] %s", n.Name, heading)
+
+	if n.NotifierType == NotifierTypeEmail {
+		message = fmt.Sprintf("<p><b>Notifier: %s</b></p>\n%s", n.Name, message)
+	} else {
+		message = fmt.Sprintf("Notifier: %s\n\n%s", n.Name, message)
+	}
+
 	err := n.getSpecificNotifier().Send(encryptor, logger, heading, message)
 
 	if err != nil {
