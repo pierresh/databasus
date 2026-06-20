@@ -121,11 +121,12 @@ type EnvVariables struct {
 	CloudflareTurnstileSiteKey   string `env:"CLOUDFLARE_TURNSTILE_SITE_KEY"`
 
 	// SMTP configuration (optional)
-	SMTPHost     string `env:"SMTP_HOST"`
-	SMTPPort     int    `env:"SMTP_PORT"`
-	SMTPUser     string `env:"SMTP_USER"`
-	SMTPPassword string `env:"SMTP_PASSWORD"`
-	SMTPFrom     string `env:"SMTP_FROM"`
+	SMTPHost               string `env:"SMTP_HOST"`
+	SMTPPort               int    `env:"SMTP_PORT"`
+	SMTPUser               string `env:"SMTP_USER"`
+	SMTPPassword           string `env:"SMTP_PASSWORD"`
+	SMTPFrom               string `env:"SMTP_FROM"`
+	SMTPInsecureSkipVerify bool   `env:"SMTP_INSECURE_SKIP_VERIFY"`
 
 	// Application URL (optional) - used for email links
 	DatabasusURL string `env:"DATABASUS_URL"`
