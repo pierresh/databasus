@@ -39,6 +39,11 @@ const (
 	exitCodeConnectionError     = 2
 )
 
+var (
+	errBackupShutdown = errors.New("backup cancelled due to shutdown")
+	errBackupTimeout  = errors.New("backup cancelled due to timeout")
+)
+
 type CreateMysqlBackupUsecase struct {
 	logger           *slog.Logger
 	secretKeyService *encryption_secrets.SecretKeyService
@@ -191,7 +196,7 @@ func (uc *CreateMysqlBackupUsecase) streamToStorage(
 	uc.logger.Info("Streaming MySQL backup to storage", "mysqlBin", mysqlBin)
 
 	ctx, cancel := uc.createBackupContext(parentCtx)
-	defer cancel()
+	defer cancel(nil)
 
 	myCnfFile, err := uc.createTempMyCnfFile(myConfig, password)
 	if err != nil {
@@ -256,7 +261,7 @@ func (uc *CreateMysqlBackupUsecase) streamToStorage(
 		)
 		if saveErr != nil {
 			_ = storageReader.CloseWithError(saveErr)
-			cancel()
+			cancel(saveErr)
 		}
 		saveErrCh <- saveErr
 	}()
@@ -296,7 +301,7 @@ func (uc *CreateMysqlBackupUsecase) streamToStorage(
 	select {
 	case <-ctx.Done():
 		uc.cleanupOnCancellation(zstdWriter, encryptionWriter, storageWriter, saveErrCh)
-		return nil, uc.checkCancellationReason()
+		return nil, uc.classifyCancellation(ctx)
 	default:
 	}
 
@@ -447,10 +452,14 @@ func (uc *CreateMysqlBackupUsecase) copyWithShutdownCheck(
 
 func (uc *CreateMysqlBackupUsecase) createBackupContext(
 	parentCtx context.Context,
-) (context.Context, context.CancelFunc) {
-	ctx, cancel := context.WithTimeout(parentCtx, backupTimeout)
+) (context.Context, context.CancelCauseFunc) {
+	ctx, cancel := context.WithCancelCause(parentCtx)
+
+	timeout := time.AfterFunc(backupTimeout, func() { cancel(errBackupTimeout) })
 
 	go func() {
+		defer timeout.Stop()
+
 		ticker := time.NewTicker(shutdownCheckInterval)
 		defer ticker.Stop()
 
@@ -459,11 +468,11 @@ func (uc *CreateMysqlBackupUsecase) createBackupContext(
 			case <-ctx.Done():
 				return
 			case <-parentCtx.Done():
-				cancel()
+				cancel(context.Cause(parentCtx))
 				return
 			case <-ticker.C:
 				if config.IsShouldShutdown() {
-					cancel()
+					cancel(errBackupShutdown)
 					return
 				}
 			}
@@ -576,11 +585,19 @@ func (uc *CreateMysqlBackupUsecase) closeWriters(
 	return nil
 }
 
-func (uc *CreateMysqlBackupUsecase) checkCancellationReason() error {
-	if config.IsShouldShutdown() {
-		return fmt.Errorf("backup cancelled due to shutdown")
+func (uc *CreateMysqlBackupUsecase) classifyCancellation(ctx context.Context) error {
+	cause := context.Cause(ctx)
+
+	switch {
+	case errors.Is(cause, errBackupShutdown):
+		return errors.New("backup cancelled due to shutdown")
+	case errors.Is(cause, errBackupTimeout):
+		return errors.New("backup cancelled due to timeout")
+	case cause == nil, errors.Is(cause, context.Canceled), errors.Is(cause, context.DeadlineExceeded):
+		return errors.New("backup cancelled")
+	default:
+		return fmt.Errorf("save to storage: %w", cause)
 	}
-	return fmt.Errorf("backup cancelled")
 }
 
 func (uc *CreateMysqlBackupUsecase) buildMysqldumpErrorMessage(
