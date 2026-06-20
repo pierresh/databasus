@@ -10,6 +10,7 @@ export interface MysqlDatabase {
   password: string;
   database?: string;
   isHttps: boolean;
+  isUseExtendedInsert?: boolean;
   excludeTables?: string[];
   includeTables?: string[];
   restoreIncludeTables?: string[];

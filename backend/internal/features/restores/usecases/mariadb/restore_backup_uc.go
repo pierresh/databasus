@@ -76,6 +76,10 @@ func (uc *RestoreMariadbBackupUsecase) Execute(
 		args = append(args, "--max-allowed-packet=1G")
 	}
 
+	if mdb.Version != tools.MariadbVersion55 && !mdb.IsSkipGaleraDisable {
+		args = append(args, "--init-command=SET SESSION wsrep_on=OFF")
+	}
+
 	if mdb.IsHttps {
 		args = append(args, "--ssl")
 		args = append(args, "--skip-ssl-verify-server-cert")

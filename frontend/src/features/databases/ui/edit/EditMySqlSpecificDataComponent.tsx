@@ -1,5 +1,5 @@
 import { CopyOutlined, DownOutlined, InfoCircleOutlined, UpOutlined } from '@ant-design/icons';
-import { App, Button, Input, InputNumber, Select, Switch, Tooltip } from 'antd';
+import { App, Button, Checkbox, Input, InputNumber, Select, Switch, Tooltip } from 'antd';
 import { useEffect, useState } from 'react';
 
 import { IS_CLOUD } from '../../../../constants';
@@ -52,7 +52,9 @@ export const EditMySqlSpecificDataComponent = ({
 
   const hasAdvancedValues = isRestoreMode
     ? !!database.mysql?.restoreIncludeTables?.length || !!database.mysql?.restoreExcludeTables?.length
-    : !!database.mysql?.excludeTables?.length || !!database.mysql?.includeTables?.length;
+    : !!database.mysql?.isUseExtendedInsert ||
+      !!database.mysql?.excludeTables?.length ||
+      !!database.mysql?.includeTables?.length;
   const [isShowAdvanced, setShowAdvanced] = useState(hasAdvancedValues || isRestoreMode || !database.id);
 
   const [isShowPasteModal, setIsShowPasteModal] = useState(false);
@@ -389,6 +391,35 @@ export const EditMySqlSpecificDataComponent = ({
 
       {isShowAdvanced && !isRestoreMode && (
         <>
+          <div className="mb-1 flex w-full items-center">
+            <div className="min-w-[150px]">Use extended inserts</div>
+            <div className="flex items-center">
+              <Checkbox
+                checked={editingDatabase.mysql?.isUseExtendedInsert || false}
+                onChange={(e) => {
+                  if (!editingDatabase.mysql) return;
+
+                  setEditingDatabase({
+                    ...editingDatabase,
+                    mysql: {
+                      ...editingDatabase.mysql,
+                      isUseExtendedInsert: e.target.checked,
+                    },
+                  });
+                }}
+              >
+                Enable extended inserts
+              </Checkbox>
+
+              <Tooltip
+                className="cursor-pointer"
+                title="Batch multiple rows per INSERT for much faster restores. Off by default because it uses more memory during backup - enable only if restores are slow and your server has enough memory."
+              >
+                <InfoCircleOutlined className="ml-2" style={{ color: 'gray' }} />
+              </Tooltip>
+            </div>
+          </div>
+
           <div className="mb-1 flex w-full items-center">
             <div className="min-w-[150px]">Exclude tables</div>
             <Select

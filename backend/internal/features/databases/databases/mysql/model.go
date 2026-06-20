@@ -41,6 +41,7 @@ type MysqlDatabase struct {
 	RestoreExcludeTables []string `json:"restoreExcludeTables" gorm:"-"`
 	Privileges           string   `json:"privileges"           gorm:"column:privileges;type:text;not null;default:''"`
 	IsZstdSupported      bool     `json:"isZstdSupported"      gorm:"column:is_zstd_supported;type:boolean;not null;default:true"`
+	IsUseExtendedInsert  bool     `json:"isUseExtendedInsert"  gorm:"column:is_use_extended_insert;type:boolean;not null;default:false"`
 }
 
 func (m *MysqlDatabase) TableName() string {
@@ -210,6 +211,7 @@ func (m *MysqlDatabase) Update(incoming *MysqlDatabase) {
 	m.IncludeTables = incoming.IncludeTables
 	m.Privileges = incoming.Privileges
 	m.IsZstdSupported = incoming.IsZstdSupported
+	m.IsUseExtendedInsert = incoming.IsUseExtendedInsert
 
 	if incoming.Password != "" {
 		m.Password = incoming.Password
