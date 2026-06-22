@@ -374,6 +374,8 @@ func Test_SweepCanceledByDisabledConfig_WhenScheduledVerificationDisabled_Cancel
 
 	final := GetVerificationByIDViaAPI(t, router, owner.Token, scheduledRowID)
 	assert.Equal(t, VerificationStatusCanceled, final.Status)
+	require.NotNil(t, final.FailMessage)
+	assert.Contains(t, *final.FailMessage, "schedule was disabled")
 }
 
 func Test_CreateScheduledRuns_AfterUserCancel_DoesNotImmediatelyRecreate(t *testing.T) {

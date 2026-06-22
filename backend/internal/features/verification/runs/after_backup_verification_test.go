@@ -125,6 +125,8 @@ func Test_OnBackupCompleted_WhenPendingAfterBackupExists_CancelsOldAndEnqueuesNe
 	for _, row := range rowsAfter {
 		if row.ID == firstRunID {
 			assert.Equal(t, VerificationStatusCanceled, row.Status, "old PENDING must be canceled")
+			require.NotNil(t, row.FailMessage)
+			assert.Contains(t, *row.FailMessage, "superseded")
 			continue
 		}
 

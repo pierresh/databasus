@@ -434,6 +434,8 @@ func Test_CancelVerification_AsOwner_FlipsToCanceled(t *testing.T) {
 	canceled := GetVerificationByIDViaAPI(t, router, owner.Token, enqueued.ID)
 	assert.Equal(t, VerificationStatusCanceled, canceled.Status)
 	require.NotNil(t, canceled.FinishedAt)
+	require.NotNil(t, canceled.FailMessage)
+	assert.Contains(t, *canceled.FailMessage, "by user")
 }
 
 func Test_CancelVerification_WhenAlreadyCompleted_Returns400(t *testing.T) {

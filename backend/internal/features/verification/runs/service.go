@@ -152,7 +152,9 @@ func (s *VerificationService) CancelVerification(
 		return fmt.Errorf("verification is not cancellable (status: %s)", verification.Status)
 	}
 
-	if err := s.verificationRepository.MarkTerminal(nil, verificationID, VerificationStatusCanceled, nil); err != nil {
+	if err := s.verificationRepository.MarkTerminal(nil, verificationID, VerificationStatusCanceled, map[string]any{
+		"fail_message": cancelMessageByUser,
+	}); err != nil {
 		return err
 	}
 
@@ -549,7 +551,9 @@ func (s *VerificationService) cancelPendingAutoScheduledVerificationsByDatabaseI
 
 		if row.Status == VerificationStatusPending {
 			if cancelErr := s.verificationRepository.MarkTerminal(
-				tx, row.ID, VerificationStatusCanceled, nil,
+				tx, row.ID, VerificationStatusCanceled, map[string]any{
+					"fail_message": cancelMessageSupersededByBackup,
+				},
 			); cancelErr != nil {
 				return cancelErr
 			}
@@ -743,6 +747,12 @@ func sanitizeDatabaseForAgent(database *databases.Database) *databases.Database 
 
 	return database
 }
+
+const (
+	cancelMessageByUser             = "verification canceled by user"
+	cancelMessageScheduleDisabled   = "verification canceled: its verification schedule was disabled"
+	cancelMessageSupersededByBackup = "verification canceled: superseded by a newer backup's scheduled verification"
+)
 
 func failureMessageFor(reason FailureReason, agentMessage *string) string {
 	hasAgentMessage := agentMessage != nil && *agentMessage != ""
