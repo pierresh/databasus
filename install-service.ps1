@@ -1,4 +1,4 @@
-# install-service.ps1 — Register databasus.exe as a Windows service
+# install-service.ps1 - Register databasus.exe as a Windows service
 #
 # Installs databasus.exe as a Windows service that:
 #   - Starts automatically when Windows boots
@@ -6,10 +6,10 @@
 #   - Writes server output to databasus-data\databasus.log
 #
 # Run this script ONCE after deploying databasus.exe on a new server.
-# Safe to re-run — it removes and recreates the service if it already exists.
+# Safe to re-run - it removes and recreates the service if it already exists.
 #
 # REQUIREMENTS:
-#   - Run as Administrator (right-click PowerShell → "Run as administrator")
+#   - Run as Administrator (right-click PowerShell -> "Run as administrator")
 #   - databasus.exe must be in the same folder as this script
 #
 # USAGE:
@@ -26,9 +26,9 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $DisplayName = "Databasus Backup Service"
-$Description = "Databasus database backup service — runs scheduled backups automatically."
+$Description = "Databasus database backup service - runs scheduled backups automatically."
 
-# ── Must run as Administrator ──────────────────────────────────────────────────
+# -- Must run as Administrator --------------------------------------------------
 $currentPrincipal = [Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()
 if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
     Write-Host ""
@@ -39,12 +39,12 @@ if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Adm
     exit 1
 }
 
-# ── Resolve paths ──────────────────────────────────────────────────────────────
+# -- Resolve paths --------------------------------------------------------------
 $InstallDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Binary     = Join-Path $InstallDir "databasus.exe"
 $LogDir     = Join-Path $InstallDir "databasus-data"
 
-# ── Banner ─────────────────────────────────────────────────────────────────────
+# -- Banner ---------------------------------------------------------------------
 Write-Host ""
 Write-Host "============================================================" -ForegroundColor Cyan
 Write-Host "  Databasus Service Installer" -ForegroundColor Cyan
@@ -55,7 +55,7 @@ Write-Host "  Binary       : $Binary"
 Write-Host "  Log folder   : $LogDir"
 Write-Host ""
 
-# ── Step 1 — Pre-flight checks ─────────────────────────────────────────────────
+# -- Step 1 - Pre-flight checks -------------------------------------------------
 Write-Host "[ 1 / 4 ]  Checking files..." -ForegroundColor White
 
 if (-not (Test-Path $Binary)) {
@@ -68,13 +68,13 @@ if (-not (Test-Path $Binary)) {
 }
 Write-Host "  [OK]  databasus.exe found" -ForegroundColor Green
 
-# ── Step 2 — Remove existing service (idempotent) ─────────────────────────────
+# -- Step 2 - Remove existing service (idempotent) -----------------------------
 Write-Host ""
 Write-Host "[ 2 / 4 ]  Checking for existing service..." -ForegroundColor White
 
 $existing = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
 if ($existing) {
-    Write-Host "  A previous '$ServiceName' service was found — removing it first..." -ForegroundColor Yellow
+    Write-Host "  A previous '$ServiceName' service was found - removing it first..." -ForegroundColor Yellow
     & $Binary --uninstall-service 2>&1 | Out-Null
     Start-Sleep -Seconds 2
     Write-Host "  [OK]  Previous service removed." -ForegroundColor Green
@@ -82,7 +82,7 @@ if ($existing) {
     Write-Host "  [OK]  No existing service found." -ForegroundColor Green
 }
 
-# ── Step 3 — Install and configure service ─────────────────────────────────────
+# -- Step 3 - Install and configure service -------------------------------------
 Write-Host ""
 Write-Host "[ 3 / 4 ]  Registering service..." -ForegroundColor White
 
@@ -99,7 +99,7 @@ sc.exe failure $ServiceName reset= 86400 actions= restart/5000/restart/5000/rest
 
 Write-Host "  [OK]  Service '$ServiceName' registered successfully." -ForegroundColor Green
 
-# ── Step 4 — Start service ─────────────────────────────────────────────────────
+# -- Step 4 - Start service -----------------------------------------------------
 Write-Host ""
 Write-Host "[ 4 / 4 ]  Starting service..." -ForegroundColor White
 
@@ -117,14 +117,14 @@ if ($svc -and $svc.Status -eq "Running") {
     Write-Host "          $LogDir\databasus.log" -ForegroundColor Yellow
 }
 
-# ── Summary ────────────────────────────────────────────────────────────────────
+# -- Summary --------------------------------------------------------------------
 Write-Host ""
 Write-Host "============================================================" -ForegroundColor Cyan
 Write-Host "  Installation complete" -ForegroundColor Cyan
 Write-Host "============================================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "  Service     : $ServiceName  ($DisplayName)"
-Write-Host "  Auto-start  : Yes — starts automatically at Windows boot"
+Write-Host "  Auto-start  : Yes - starts automatically at Windows boot"
 Write-Host "  On crash    : Restarts automatically (after 5 s)"
 Write-Host ""
 Write-Host "  USEFUL COMMANDS  (run in PowerShell as Administrator)"
